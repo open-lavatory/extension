@@ -16,6 +16,8 @@
         inherit system;
       };
     in {
+      packages.default = pkgs.callPackage ./nix/extension.nix {};
+
       devShells.default = pkgs.mkShell {
         packages = with pkgs; [
           just

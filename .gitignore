@@ -1,0 +1,6 @@
+.direnv
+.envrc
+.output
+.wxt
+node_modules
+.tmp

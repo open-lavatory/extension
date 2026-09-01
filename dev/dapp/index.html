@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dev dapp</title>
+    <link rel="stylesheet" href="../lab.css" />
+  </head>
+  <body data-accounts="">
+    <main>
+      <h1>Dev dapp</h1>
+      <p class="muted">
+        Finds providers over EIP-6963 and talks to the one it picks, exactly as
+        any site would.
+      </p>
+      <h2>providers</h2>
+      <ul id="providers"></ul>
+      <button id="connect">Connect</button>
+      <button id="sign">personal_sign</button>
+      <p id="result" class="muted">nothing yet</p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

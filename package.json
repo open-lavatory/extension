@@ -1,0 +1,35 @@
+{
+  "name": "openlv-connector",
+  "version": "0.1.0",
+  "description": "Browser extension that routes web3 sites to paired OpenLV connections",
+  "license": "LGPL-3.0-only",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "wxt build",
+    "dev": "mkdir -p .wxt/chromium-profile && wxt",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "postinstall": "wxt prepare",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openlv/core": "^0.2.0",
+    "@openlv/session": "^0.2.0",
+    "@openlv/transport": "^0.2.0",
+    "qr": "^0.7.0",
+    "solid-js": "^1.9.15"
+  },
+  "devDependencies": {
+    "@wxt-dev/module-solid": "^1.1.4",
+    "eslint": "^10.9.1",
+    "eslint-plugin-v3xlabs": "^1.8.1",
+    "globals": "^16.5.0",
+    "playwright": "1.61.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2",
+    "web-ext": "^10.6.0",
+    "wxt": "^0.21.4"
+  },
+  "packageManager": "pnpm@11.22.0"
+}

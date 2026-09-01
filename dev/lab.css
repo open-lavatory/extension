@@ -1,0 +1,61 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: light-dark(#f4f2ee, #131419);
+  color: light-dark(#1f2024, #e6e6e4);
+}
+
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+h1 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+h2 {
+  font-size: 0.8rem;
+  font-family: ui-monospace, monospace;
+  color: light-dark(#83858c, #71747d);
+  margin: 1rem 0 0;
+}
+
+p {
+  margin: 0;
+}
+
+.muted {
+  color: light-dark(#55575e, #a2a5ad);
+}
+
+textarea {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  width: 100%;
+  padding: 0.5rem;
+}
+
+button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+
+ol,
+ul {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}

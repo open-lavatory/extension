@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dev wallet</title>
+    <link rel="stylesheet" href="../lab.css" />
+  </head>
+  <body data-status="idle">
+    <main>
+      <h1>Dev wallet</h1>
+      <p class="muted">
+        Stands in for a phone. Paste the connection url the extension shows and
+        it joins the session, answering with a fixed account.
+      </p>
+      <textarea id="url" rows="3" placeholder="openlv://..."></textarea>
+      <button id="connect">Join session</button>
+      <p id="status" class="muted">idle</p>
+      <h2>requests</h2>
+      <ol id="log"></ol>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
