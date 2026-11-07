@@ -23,7 +23,7 @@ export const ListView = (properties: {
 }): JSX.Element => (
   <>
     <Header title="openlv-connect" onSettings={idle} />
-    <main class="body">
+    <main class="body" classList={{ centered: properties.rows.length === 0 }}>
       <Show
         when={properties.rows.length > 0}
         fallback={(
@@ -84,7 +84,7 @@ export const QrView = (properties: { isCopied: boolean; copyRef?: (element: HTML
 export const LoadingView = (): JSX.Element => (
   <>
     <Header title="Connect" onBack={idle} />
-    <main class="body">
+    <main class="body centered">
       <ConnectionLoading detail="This may take a few seconds..." />
     </main>
   </>
@@ -93,7 +93,7 @@ export const LoadingView = (): JSX.Element => (
 export const PairedView = (properties: { peer: Peer; doneRef?: (element: HTMLElement) => void; }): JSX.Element => (
   <>
     <Header title="Connect" onBack={idle} />
-    <main class="body">
+    <main class="body centered">
       <div class="state">
         <span class="peer-badge">
           <PeerIcon peer={properties.peer} size={48} />

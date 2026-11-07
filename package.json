@@ -1,7 +1,7 @@
 {
   "name": "openlv-connect",
-  "version": "0.1.0",
-  "description": "Browser extension that connects approved sites to OpenLV wallets",
+  "version": "0.0.1",
+  "description": "Browser extension that manages openlv connections",
   "license": "LGPL-3.0-only",
   "type": "module",
   "private": true,

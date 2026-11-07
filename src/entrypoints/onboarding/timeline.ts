@@ -21,7 +21,7 @@ export type Playback = {
   togglePaused: () => void;
 };
 
-type Timeline<StepId extends string> = Playback & {
+export type Timeline<StepId extends string> = Playback & {
   is: (...stepIds: StepId[]) => boolean;
   within: (fromStepId: StepId, toStepId: StepId) => boolean;
   jump: (stepId: StepId, stillStepId: StepId) => void;
@@ -32,7 +32,7 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const pressMs = 220;
 const travelMs = 700;
 
-export const createTimeline = <StepId extends string>(steps: readonly Step<StepId>[], initialStillStepId: StepId): Timeline<StepId> => {
+export const createTimeline = <StepId extends string>(steps: readonly Step<StepId>[], initialStillStepId: StepId, rest: { x: number; y: number; }): Timeline<StepId> => {
   const motion = matchMedia(REDUCED_MOTION_QUERY);
   const order = new Map(steps.map((step, index) => [step.stepId, index]));
   const totalMs = steps.reduce((sum, step) => sum + step.durationMs, 0);
@@ -42,7 +42,7 @@ export const createTimeline = <StepId extends string>(steps: readonly Step<StepI
   const [isVisible, setVisible] = createSignal(false);
   const [isReduced, setReduced] = createSignal(motion.matches);
   const [isPaused, setPaused] = createSignal(false);
-  const [pointer, setPointer] = createSignal({ x: 0, y: 0, isVisible: false, isClicking: false });
+  const [pointer, setPointer] = createSignal({ ...rest, isVisible: false, isClicking: false });
   const [ripples, setRipples] = createSignal<Ripple[]>([]);
   const index = createMemo(() => (isReduced() ? order.get(stillStepId()) ?? 0 : playingIndex()));
   let root: HTMLElement | undefined;
@@ -92,7 +92,7 @@ export const createTimeline = <StepId extends string>(steps: readonly Step<StepI
     setPlayingIndex(next);
     previousMs = -1;
     moved = new Set();
-    setPointer(previous => ({ ...previous, isVisible: (steps[next]?.cursor ?? []).length > 0 }));
+    setPointer(previous => ({ ...previous, ...(next === 0 && rest), isVisible: (steps[next]?.cursor ?? []).length > 0 }));
   };
 
   const tick = (nowMs: number) => {

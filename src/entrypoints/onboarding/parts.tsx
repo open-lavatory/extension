@@ -4,12 +4,16 @@ import Camera from "lucide-solid/icons/camera";
 import Check from "lucide-solid/icons/check";
 import ChevronLeft from "lucide-solid/icons/chevron-left";
 import ChevronRight from "lucide-solid/icons/chevron-right";
+import CircleUserRound from "lucide-solid/icons/circle-user-round";
 import MousePointer2 from "lucide-solid/icons/mouse-pointer-2";
 import Pause from "lucide-solid/icons/pause";
 import Play from "lucide-solid/icons/play";
+import Plus from "lucide-solid/icons/plus";
+import RotateCw from "lucide-solid/icons/rotate-cw";
 import Signal from "lucide-solid/icons/signal";
 import Usb from "lucide-solid/icons/usb";
 import Wifi from "lucide-solid/icons/wifi";
+import X from "lucide-solid/icons/x";
 import { encodeQR } from "qr";
 import { createSignal, For, type JSX, onCleanup, Show } from "solid-js";
 
@@ -111,21 +115,37 @@ export const Scene = (properties: {
   );
 };
 
-export const BrowserBar = (properties: { origin: string; children?: JSX.Element; }): JSX.Element => (
+type BrowserTab = { peer: Peer | "site"; title: string; isActive?: boolean; };
+
+export const SITE_TABS: BrowserTab[] = [{ peer: "site", title: "Swap", isActive: true }];
+
+export const BrowserBar = (properties: { tabs: BrowserTab[]; address: string; children?: JSX.Element; }): JSX.Element => (
   <>
-    <div class="browser-tabs">
-      <span class="browser-tab active">
-        <PeerIcon peer="site" size={14} />
-        {properties.origin}
-      </span>
+    <div class="browser-strip">
+      <For each={properties.tabs}>
+        {tab => (
+          <span class="browser-tab" classList={{ active: !!tab.isActive }}>
+            <PeerIcon peer={tab.peer} size={16} />
+            <span class="browser-tab-title">{tab.title}</span>
+            <X size={12} class="browser-tab-close" />
+          </span>
+        )}
+      </For>
+      <span class="browser-new-tab"><Plus size={14} /></span>
     </div>
-    <div class="browser-bar">
+    <div class="browser-toolbar">
       <span class="browser-nav">
         <ChevronLeft size={16} />
         <ChevronRight size={16} />
+        <RotateCw size={14} />
       </span>
-      <span class="browser-address">{properties.origin}</span>
-      {properties.children}
+      <span class="browser-address">{properties.address}</span>
+      {properties.children ?? (
+        <>
+          <span class="browser-action"><Mark size={20} /></span>
+          <span class="browser-action"><CircleUserRound size={18} /></span>
+        </>
+      )}
     </div>
   </>
 );
@@ -307,32 +327,38 @@ export const DesktopWallet = (properties: { timeline: Playback; views: WalletVie
   </div>
 );
 
-export const WebWallet = (properties: { timeline: Playback; views: WalletViews; isTyped: boolean; isShown?: boolean; style: JSX.CSSProperties; }): JSX.Element => (
+export const WebWallet = (properties: { timeline: Playback; views: WalletViews; isCardOpen?: boolean; isTyped?: boolean; isShown?: boolean; style: JSX.CSSProperties; }): JSX.Element => (
   <div class="device browser-window web-wallet" classList={{ hidden: properties.isShown === false }} style={properties.style}>
-    <div class="browser-tabs">
-      <span class="browser-tab">
-        <PeerIcon peer="site" size={14} />
-        {ORIGIN}
-      </span>
-      <span class="browser-tab active">
-        <PeerIcon peer="web" size={14} />
-        multisig.example
-      </span>
-    </div>
-    <div class="browser-bar">
-      <span class="browser-address">multisig.example</span>
-    </div>
-    <div class="web-wallet-header">
-      <PeerIcon peer="web" size={22} />
-      <strong>{PEER_NAME.web}</strong>
-    </div>
-    <div class="app-content">
-      <WalletBody
-        views={properties.views}
-        timeline={properties.timeline}
-        name="web"
-        home={<LinkHome isTyped={properties.isTyped} fieldRef={properties.timeline.target("web-field")} goRef={properties.timeline.target("web-go")} />}
-      />
+    <BrowserBar tabs={[{ peer: "site", title: "Swap" }, { peer: "web", title: PEER_NAME.web, isActive: true }]} address="multisig.example" />
+    <div class="browser-page">
+      <div class="web-wallet-header">
+        <PeerIcon peer="web" size={22} />
+        <strong>{PEER_NAME.web}</strong>
+        <span class="web-wallet-openlv" classList={{ open: !!properties.isCardOpen }} ref={properties.timeline.target("web-openlv")}><Mark size={20} /></span>
+      </div>
+      <div class="app-content">
+        <WalletBody
+          views={properties.views}
+          timeline={properties.timeline}
+          name="web"
+          home={(
+            <div class="wallet-home">
+              <span class="wallet-address">{ACCOUNT}</span>
+              <Skeleton width={140} height={18} />
+              <Skeleton width={90} />
+            </div>
+          )}
+        />
+      </div>
+      <Show when={properties.isCardOpen !== undefined}>
+        <div class="web-wallet-card" classList={{ hidden: !properties.isCardOpen }}>
+          <span class="web-wallet-card-label">Connection URL</span>
+          <span class="wallet-field" ref={properties.timeline.target("web-field")}>
+            <Show when={properties.isTyped}><span class="wallet-typed">{LINK}</span></Show>
+          </span>
+          <span class="primary full" ref={properties.timeline.target("web-go")}>Connect</span>
+        </div>
+      </Show>
     </div>
   </div>
 );

@@ -1,11 +1,37 @@
 import CircleUserRound from "lucide-solid/icons/circle-user-round";
+import Globe from "lucide-solid/icons/globe";
+import Monitor from "lucide-solid/icons/monitor";
 import Pin from "lucide-solid/icons/pin";
 import Puzzle from "lucide-solid/icons/puzzle";
+import Smartphone from "lucide-solid/icons/smartphone";
 import { For, type JSX, Show } from "solid-js";
 
-import { ACCOUNT, BrowserBar, DesktopWallet, HardwareKey, Layer, Mark, ORIGIN, type Peer, PeerIcon, Phone, Scene, Skeleton, WebWallet } from "./parts.js";
-import { createTimeline } from "./timeline.js";
+import { ACCOUNT, BrowserBar, DesktopWallet, HardwareKey, Layer, Mark, ORIGIN, type Peer, PeerIcon, Phone, Scene, SITE_TABS, Skeleton, WebWallet } from "./parts.js";
+import { createTimeline, type Timeline } from "./timeline.js";
 import { ApprovalWindow, ListView, LoadingView, PairedView, PopupWindow, QrView } from "./windows.js";
+
+const PEERS: Peer[] = ["phone", "desktop", "web"];
+
+const KIND: Record<Peer, { label: string; icon: () => JSX.Element; }> = {
+  phone: { label: "Phone", icon: () => <Smartphone size={18} /> },
+  desktop: { label: "Desktop", icon: () => <Monitor size={18} /> },
+  web: { label: "Browser", icon: () => <Globe size={18} /> },
+};
+
+type Run<StepId extends string> = { peer: Peer; from: StepId; to: StepId; still: StepId; };
+
+const WalletSwitch = <StepId extends string>(properties: { timeline: Timeline<StepId>; runs: Run<StepId>[]; }): JSX.Element => (
+  <div class="kinds">
+    <For each={properties.runs}>
+      {run => (
+        <button type="button" classList={{ current: properties.timeline.within(run.from, run.to) }} onClick={() => properties.timeline.jump(run.from, run.still)}>
+          {KIND[run.peer].icon()}
+          {KIND[run.peer].label}
+        </button>
+      )}
+    </For>
+  </div>
+);
 
 const SiteNav = (properties: { account?: Peer; connectRef?: (element: HTMLElement) => void; }): JSX.Element => (
   <div class="site-nav">
@@ -29,12 +55,12 @@ export const PinScene = (): JSX.Element => {
     { stepId: "menu", durationMs: 3000, cursor: [["pin", 0.75]] },
     { stepId: "pinned", durationMs: 3600 },
     { stepId: "hold", durationMs: 1800 },
-  ], "menu");
+  ], "menu", { x: 600, y: 200 });
 
   return (
     <Scene timeline={timeline} height={300} label="The extensions menu next to the address bar, with the pin next to openlv-connect.">
       <div class="browser-window" style={{ left: "0px", top: "0px", width: "760px", height: "280px" }}>
-        <BrowserBar origin={ORIGIN}>
+        <BrowserBar tabs={SITE_TABS} address={ORIGIN}>
           <span class="browser-action pinned" classList={{ hidden: !timeline.within("pinned", "hold") }}><Mark size={20} /></span>
           <span class="browser-action" classList={{ open: timeline.is("menu") }} ref={timeline.target("puzzle")}><Puzzle size={18} /></span>
           <span class="browser-action"><CircleUserRound size={18} /></span>
@@ -46,7 +72,7 @@ export const PinScene = (): JSX.Element => {
           <Skeleton width={300} />
         </div>
       </div>
-      <div class="extensions-menu" classList={{ hidden: !timeline.is("menu") }} style={{ right: "12px", top: "84px" }}>
+      <div class="extensions-menu" classList={{ hidden: !timeline.is("menu") }} style={{ right: "12px", top: "88px" }}>
         <p class="extensions-title">Extensions</p>
         <div class="extensions-row">
           <Mark size={18} />
@@ -59,16 +85,16 @@ export const PinScene = (): JSX.Element => {
   );
 };
 
-const KINDS: { peer: Peer; label: string; jumpTo: PairStep; still: PairStep; }[] = [
-  { peer: "phone", label: "Phone", jumpTo: "list", still: "scan-phone" },
-  { peer: "desktop", label: "Desktop", jumpTo: "qr-desktop", still: "paste-desktop" },
-  { peer: "web", label: "Browser", jumpTo: "qr-web", still: "paste-web" },
+const PAIR_RUNS: Run<PairStep>[] = [
+  { peer: "phone", from: "list", to: "done-phone", still: "scan-phone" },
+  { peer: "desktop", from: "qr-desktop", to: "done-desktop", still: "paste-desktop" },
+  { peer: "web", from: "qr-web", to: "done-web", still: "paste-web" },
 ];
 
 type PairStep
   = | "list" | "qr-phone" | "scan-phone" | "link-phone" | "ok-phone" | "done-phone"
     | "qr-desktop" | "paste-desktop" | "link-desktop" | "ok-desktop" | "done-desktop"
-    | "qr-web" | "open-web" | "paste-web" | "link-web" | "ok-web" | "done-web";
+    | "qr-web" | "card-web" | "paste-web" | "link-web" | "ok-web" | "done-web";
 
 export const PairScene = (): JSX.Element => {
   const timeline = createTimeline<PairStep>([
@@ -84,37 +110,26 @@ export const PairScene = (): JSX.Element => {
     { stepId: "ok-desktop", durationMs: 2800, cursor: [["desktop-ok", 0.65]] },
     { stepId: "done-desktop", durationMs: 2600, cursor: [["done", 0.8]] },
     { stepId: "qr-web", durationMs: 2600, cursor: [["copy", 0.85]] },
-    { stepId: "open-web", durationMs: 1800 },
-    { stepId: "paste-web", durationMs: 3800, cursor: [["web-field", 0.15], ["web-go", 0.8]] },
+    { stepId: "card-web", durationMs: 2200, cursor: [["web-openlv", 0.8]] },
+    { stepId: "paste-web", durationMs: 3800, cursor: [["web-field", 0.2], ["web-go", 0.8]] },
     { stepId: "link-web", durationMs: 1400 },
     { stepId: "ok-web", durationMs: 2800, cursor: [["web-ok", 0.65]] },
     { stepId: "done-web", durationMs: 3000 },
-  ], "scan-phone");
-  const pairedPeer = (): Peer | undefined => KINDS.find(kind => timeline.is(`done-${kind.peer}`))?.peer;
+  ], "scan-phone", { x: 330, y: 440 });
+  const pairedPeer = (): Peer | undefined => PEERS.find(peer => timeline.is(`done-${peer}`));
 
   return (
     <Scene
       timeline={timeline}
       height={470}
       label="openlv-connect shows a QR code and a link. A phone wallet scans the code, a desktop wallet and a wallet in another browser take the link."
-      controls={(
-        <div class="kinds">
-          <For each={KINDS}>
-            {kind => (
-              <button type="button" classList={{ current: timeline.within(kind.jumpTo, `done-${kind.peer}`) || (kind.peer === "phone" && timeline.is("list")) }} onClick={() => timeline.jump(kind.jumpTo, kind.still)}>
-                <PeerIcon peer={kind.peer} size={18} />
-                {kind.label}
-              </button>
-            )}
-          </For>
-        </div>
-      )}
+      controls={<WalletSwitch timeline={timeline} runs={PAIR_RUNS} />}
     >
       <PopupWindow style={{ left: "0px", top: "0px" }}>
         <div class="layers">
           <Layer when={timeline.is("list")}><ListView rows={[]} connectRef={timeline.target("popup-connect")} /></Layer>
           <Layer when={timeline.within("qr-phone", "scan-phone") || timeline.within("qr-desktop", "paste-desktop") || timeline.within("qr-web", "paste-web")}>
-            <QrView isCopied={timeline.is("paste-desktop", "open-web", "paste-web")} copyRef={timeline.target("copy")} />
+            <QrView isCopied={timeline.is("paste-desktop", "card-web", "paste-web")} copyRef={timeline.target("copy")} />
           </Layer>
           <Layer when={timeline.is("link-phone", "ok-phone", "link-desktop", "ok-desktop", "link-web", "ok-web")}><LoadingView /></Layer>
           <Show when={pairedPeer()} keyed>
@@ -149,11 +164,12 @@ export const PairScene = (): JSX.Element => {
       />
       <WebWallet
         timeline={timeline}
-        isShown={timeline.within("open-web", "done-web")}
+        isShown={timeline.within("qr-web", "done-web")}
+        isCardOpen={timeline.is("paste-web")}
         isTyped={timeline.is("paste-web")}
         style={{ left: "400px", top: "40px" }}
         views={{
-          home: timeline.within("open-web", "paste-web"),
+          home: timeline.within("qr-web", "paste-web"),
           link: timeline.is("link-web"),
           ok: timeline.is("ok-web"),
           connected: timeline.is("done-web"),
@@ -169,12 +185,12 @@ export const SiteScene = (): JSX.Element => {
     { stepId: "ask", durationMs: 3000, cursor: [["pick", 0.8]] },
     { stepId: "pick", durationMs: 3400, cursor: [["approve", 0.75]] },
     { stepId: "done", durationMs: 3600 },
-  ], "pick");
+  ], "pick", { x: 430, y: 250 });
 
   return (
     <Scene timeline={timeline} height={640} label="A site asks to connect. The openlv-connect window lists your wallets and the accounts the site may see.">
       <div class="browser-window" style={{ left: "0px", top: "0px", width: "560px", height: "380px" }}>
-        <BrowserBar origin={ORIGIN}>
+        <BrowserBar tabs={SITE_TABS} address={ORIGIN}>
           <span class="browser-action"><Mark size={20} /></span>
         </BrowserBar>
         <div class="site-page">
@@ -196,8 +212,19 @@ export const SiteScene = (): JSX.Element => {
   );
 };
 
+type SignStep
+  = | "phone-idle" | "phone-ask" | "phone-done"
+    | "desktop-idle" | "desktop-ask" | "desktop-key" | "desktop-done"
+    | "web-idle" | "web-ask" | "web-done";
+
+const SIGN_RUNS: Run<SignStep>[] = [
+  { peer: "phone", from: "phone-idle", to: "phone-done", still: "phone-ask" },
+  { peer: "desktop", from: "desktop-idle", to: "desktop-done", still: "desktop-key" },
+  { peer: "web", from: "web-idle", to: "web-done", still: "web-ask" },
+];
+
 export const SignScene = (): JSX.Element => {
-  const timeline = createTimeline([
+  const timeline = createTimeline<SignStep>([
     { stepId: "phone-idle", durationMs: 1800, cursor: [["site-sign", 0.7]] },
     { stepId: "phone-ask", durationMs: 3200, tap: [["phone-sign", 0.7]] },
     { stepId: "phone-done", durationMs: 2600 },
@@ -205,16 +232,25 @@ export const SignScene = (): JSX.Element => {
     { stepId: "desktop-ask", durationMs: 3000, cursor: [["desktop-sign", 0.7]] },
     { stepId: "desktop-key", durationMs: 3200, cursor: [["key", 0.65]] },
     { stepId: "desktop-done", durationMs: 2800 },
-  ], "desktop-key");
-  const isWaiting = () => timeline.is("phone-ask", "desktop-ask", "desktop-key");
-  const isSigned = () => timeline.is("phone-done", "desktop-done");
+    { stepId: "web-idle", durationMs: 1800, cursor: [["site-sign", 0.7]] },
+    { stepId: "web-ask", durationMs: 3200, cursor: [["web-sign", 0.7]] },
+    { stepId: "web-done", durationMs: 2600 },
+  ], "phone-ask", { x: 300, y: 420 });
+  const isWaiting = () => timeline.is("phone-ask", "desktop-ask", "desktop-key", "web-ask");
+  const isSigned = () => timeline.is("phone-done", "desktop-done", "web-done");
+  const signer = (): Peer => SIGN_RUNS.find(run => timeline.within(run.from, run.to))?.peer ?? "phone";
 
   return (
-    <Scene timeline={timeline} height={456} label="The site asks for a signature. You approve it in your wallet, and on a hardware key when you use one.">
+    <Scene
+      timeline={timeline}
+      height={456}
+      label="The site asks for a signature. You approve it in your wallet on a phone, on a desktop with a hardware key, or in another browser."
+      controls={<WalletSwitch timeline={timeline} runs={SIGN_RUNS} />}
+    >
       <div class="browser-window" style={{ left: "0px", top: "78px", width: "380px", height: "300px" }}>
-        <BrowserBar origin={ORIGIN} />
+        <BrowserBar tabs={SITE_TABS} address={ORIGIN} />
         <div class="site-page">
-          <SiteNav account={timeline.within("phone-idle", "phone-done") ? "phone" : "desktop"} />
+          <SiteNav account={signer()} />
           <div class="site-message">
             <p>Hello, world!</p>
             <Show
@@ -250,6 +286,12 @@ export const SignScene = (): JSX.Element => {
         x={580}
         y={340}
       />
+      <WebWallet
+        timeline={timeline}
+        isShown={timeline.within("web-idle", "web-done")}
+        style={{ left: "400px", top: "40px" }}
+        views={{ connected: timeline.is("web-idle", "web-done"), sign: timeline.is("web-ask") }}
+      />
     </Scene>
   );
 };
@@ -260,12 +302,12 @@ export const ListScene = (): JSX.Element => {
     { stepId: "list", durationMs: 3000, cursor: [["more", 0.8]] },
     { stepId: "menu", durationMs: 4000 },
     { stepId: "back", durationMs: 3000 },
-  ], "menu");
+  ], "menu", { x: 560, y: 240 });
 
   return (
     <Scene timeline={timeline} height={500} label="The openlv-connect popup lists your wallets and the sites that use them.">
       <div class="browser-window" style={{ left: "0px", top: "0px", width: "760px", height: "500px" }}>
-        <BrowserBar origin={ORIGIN}>
+        <BrowserBar tabs={SITE_TABS} address={ORIGIN}>
           <span class="browser-action" classList={{ open: !timeline.is("closed") }} ref={timeline.target("toolbar")}><Mark size={20} /></span>
           <span class="browser-action"><CircleUserRound size={18} /></span>
         </BrowserBar>
@@ -275,7 +317,7 @@ export const ListScene = (): JSX.Element => {
           <Skeleton width={220} />
         </div>
       </div>
-      <PopupWindow style={{ left: "332px", top: "84px" }} isShown={!timeline.is("closed")}>
+      <PopupWindow style={{ left: "332px", top: "88px" }} isShown={!timeline.is("closed")}>
         <ListView rows={[{ peer: "phone", isBound: true }, { peer: "desktop" }, { peer: "web" }]} isMenuOpen={timeline.is("menu")} moreRef={timeline.target("more")} />
       </PopupWindow>
     </Scene>

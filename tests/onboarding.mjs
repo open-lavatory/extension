@@ -33,9 +33,10 @@ test("welcome page opens on install, pauses, and holds still frames with reduced
     });
     await context.setOffline(true);
     await welcome.reload();
-    await welcome.getByRole("heading", { name: "Thank you for installing openlv-connect" }).waitFor();
-    assert.equal(await welcome.getByRole("img", { name: /./u }).count(), 6);
-    assert.equal(await welcome.locator(".welcome-qr svg path").getAttribute("d"), /\sd="([^"]+)"/u.exec(encodeQR("https://openlv.sh", "svg", { ecc: "low", border: 2 }))?.[1]);
+    await welcome.getByRole("heading", { level: 1, name: "Thank you for installing", exact: true }).waitFor();
+    assert.equal(await welcome.getByRole("img", { name: /./u }).count(), 5);
+    assert.equal(await welcome.locator(".welcome-more").count(), 0);
+    assert.equal(await welcome.locator(".qr-frame svg path").first().getAttribute("d"), /\sd="([^"]+)"/u.exec(encodeQR("https://openlv.sh", "svg", { ecc: "low", border: 2 }))?.[1]);
 
     const pin = welcome.locator(".visual").first();
     const scene = pin.locator(".scene");
@@ -58,6 +59,9 @@ test("welcome page opens on install, pauses, and holds still frames with reduced
     await pair.getByRole("button", { name: "Play animation" }).click();
     await pair.getByRole("button", { name: "Desktop" }).click();
     assert.equal(await pair.locator(".app-window").evaluate(element => getComputedStyle(element).visibility), "visible");
+    await pair.getByRole("button", { name: "Browser" }).click();
+    assert.equal(await pair.locator(".web-wallet").evaluate(element => getComputedStyle(element).visibility), "visible");
+    assert.equal(await pair.locator(".web-wallet-card").evaluate(element => getComputedStyle(element).visibility), "hidden");
 
     await welcome.emulateMedia({ reducedMotion: "reduce" });
     await welcome.waitForFunction(() => document.querySelectorAll(".scene-frame").length === 5 && !document.querySelector(".visual-controls .icon-button"));
@@ -66,6 +70,21 @@ test("welcome page opens on install, pauses, and holds still frames with reduced
     assert.equal(await pair.locator(".viewfinder-code").evaluate(element => getComputedStyle(element).opacity), "1");
     await pair.getByRole("button", { name: "Browser" }).click();
     assert.equal(await pair.locator(".web-wallet").evaluate(element => getComputedStyle(element).visibility), "visible");
+    assert.equal(await pair.locator(".web-wallet-card").evaluate(element => getComputedStyle(element).visibility), "visible");
+    assert.equal(await pair.locator(".web-wallet-card").getByText("Connection URL", { exact: true }).count(), 1);
+
+    const sign = welcome.locator(".visual").nth(3);
+    const visibility = async selector => await sign.locator(selector).evaluate(element => getComputedStyle(element).visibility);
+
+    assert.equal(await visibility(".phone"), "visible");
+    await sign.getByRole("button", { name: "Desktop" }).click();
+    assert.equal(await visibility(".app-window"), "visible");
+    assert.equal(await visibility(".hardware-key"), "visible");
+    assert.equal(await visibility(".phone"), "hidden");
+    await sign.getByRole("button", { name: "Browser" }).click();
+    assert.equal(await visibility(".web-wallet"), "visible");
+    assert.equal(await visibility(".app-window"), "hidden");
+    assert.deepEqual(await welcome.getByRole("heading", { level: 2 }).allTextContents(), ["0. Pin it to your toolbaroptional", "1. Connect a wallet", "2. Connect to a dApp", "3. Approve in your wallet", "4. Manage your connections", "5. Enjoy"]);
     const stills = await welcome.locator(".scene").evaluateAll(scenes => scenes.map(entry => entry.innerHTML));
 
     await welcome.waitForTimeout(1500);

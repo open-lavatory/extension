@@ -49,7 +49,7 @@ stdenv.mkDerivation (final: {
   '';
 
   meta = {
-    description = "Browser extension that connects approved sites to OpenLV wallets";
+    description = "Connect and manage openlv connections";
     license = lib.licenses.lgpl3Only;
     platforms = lib.platforms.all;
   };

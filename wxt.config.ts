@@ -29,7 +29,7 @@ export default defineConfig({
   manifest: {
     name: "openlv-connect",
     description:
-      "Connect approved sites to wallets over Open Lavatory.",
+      "Connect and manage openlv connections",
     permissions: ["storage", "offscreen", "contextMenus", "favicon"],
     action: {},
   },
