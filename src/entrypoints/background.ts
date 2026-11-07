@@ -93,6 +93,32 @@ const readAccounts = async (connectionId: string): Promise<UiReply> => {
 };
 
 export default defineBackground(() => {
+  const openWelcome = async (): Promise<void> => {
+    const url = browser.runtime.getURL("/onboarding.html");
+    const [existing] = await browser.runtime.getContexts({ contextTypes: ["TAB"], documentUrls: [url] });
+
+    if (existing) {
+      await browser.tabs.update(existing.tabId, { active: true });
+      await browser.windows.update(existing.windowId, { focused: true });
+
+      return;
+    }
+
+    await browser.tabs.create({ url });
+  };
+
+  browser.runtime.onInstalled.addListener(({ reason }) => {
+    void browser.contextMenus.removeAll().then(() => {
+      browser.contextMenus.create({ ["id"]: "how-it-works", title: "How it works", contexts: ["action"] });
+    });
+
+    if (reason === "install") void openWelcome();
+  });
+
+  browser.contextMenus.onClicked.addListener(({ menuItemId }) => {
+    if (menuItemId === "how-it-works") void openWelcome();
+  });
+
   const ports = new Map<string, Set<Browser.runtime.Port>>();
   /**
    * Approvals are held in memory. A worker suspended while the approval

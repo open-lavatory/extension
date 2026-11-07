@@ -11,7 +11,7 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "postinstall": "wxt prepare",
-    "test": "node --test tests/provider.mjs",
+    "test": "node --test tests/*.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
