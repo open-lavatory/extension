@@ -11,6 +11,7 @@ export type Wallet = {
 export type Binding = {
   origin: string;
   accounts: string[];
+  icon?: string | undefined;
 };
 
 /**

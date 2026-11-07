@@ -529,3 +529,83 @@ test("a pairing outlives the popup and the service worker", { timeout: 90_000 },
     await rm(profile, { recursive: true, force: true });
   }
 });
+
+test("wallet icons from peer info show safely in the list and the approval window", { timeout: 90_000 }, async () => {
+  const profile = await mkdtemp(join(tmpdir(), "openlv-icon-test-"));
+  const server = await createServer({
+    root: join(root, "dev"),
+    cacheDir: join(profile, "vite"),
+    configFile: false,
+    optimizeDeps: { force: true },
+    logLevel: "error",
+    server: { host: "127.0.0.1", port, strictPort: true },
+  });
+  const walletIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Ccircle cx='4' cy='4' r='4' fill='green'/%3E%3C/svg%3E";
+  const bitmapIcon = "data:image/bmp;base64,Qk06AAAAAAAAADYAAAAoAAAAAQAAAAEAAAABABgAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAD/AA==";
+  let context;
+
+  try {
+    await server.listen();
+    context = await chromium.launchPersistentContext(profile, {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+      headless: true,
+      viewport: { width: 380, height: 600 },
+      args: [
+        `--disable-extensions-except=${join(root, ".output/chrome-mv3")}`,
+        `--load-extension=${join(root, ".output/chrome-mv3")}`,
+      ],
+    });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
+    const popup = await context.newPage();
+
+    await popup.goto(`chrome-extension://${new URL(worker.url()).host}/popup.html`);
+    await popup.evaluate(async (server) => {
+      await chrome.storage.local.set({ signaling: { p: "mqtt", s: { mqtt: server } } });
+    }, relay);
+
+    for (const icon of [walletIcon, bitmapIcon, undefined, "http://127.0.0.1:9/icon.png"]) {
+      await popup.getByRole("button", { name: "Connect", exact: true }).click();
+      await popup.getByRole("button", { name: "Copy Connection URL", exact: true }).click();
+      const url = await popup.evaluate(async () => await navigator.clipboard.readText());
+      const wallet = await context.newPage();
+
+      await wallet.goto(`http://localhost:${port}/wallet/${icon ? `?icon=${encodeURIComponent(icon)}` : ""}`);
+      await wallet.locator("#url").evaluate((field, value) => { field.value = value; }, url);
+      await wallet.locator("#connect").click();
+      await popup.getByText("Connected Successfully!", { exact: true }).waitFor({ timeout: 30_000 });
+      assert.equal(await popup.locator(".connected-wallet img").count(), icon?.startsWith("data:") ? 1 : 0);
+      await popup.getByRole("button", { name: "Done", exact: true }).click();
+    }
+
+    const rowIcons = async page => await page.locator(".wallet-state").evaluateAll(spans => spans.map(span => span.querySelector("img")?.getAttribute("src") ?? (span.querySelector("svg") ? "neutral" : "none")));
+
+    await popup.locator(".connection-row").nth(3).waitFor();
+    assert.deepEqual((await rowIcons(popup)).toSorted(), [walletIcon, bitmapIcon, "neutral", "neutral"].toSorted());
+
+    const site = await context.newPage();
+
+    await site.goto(`http://localhost:${port}/dapp/`);
+    await site.locator("[data-rdns='sh.openlv.connect']").waitFor();
+    const { approval, response } = await beginApproval(context, site);
+
+    await approval.getByRole("radio").nth(3).waitFor();
+    assert.deepEqual((await rowIcons(approval)).toSorted(), [walletIcon, bitmapIcon, "neutral", "neutral"].toSorted());
+    assert.deepEqual(await approval.locator(".origin .site-icon").evaluate(async (image) => {
+      await image.decode();
+      const canvas = new OffscreenCanvas(image.naturalWidth, image.naturalHeight);
+      const context2d = canvas.getContext("2d");
+
+      context2d.drawImage(image, 0, 0);
+
+      return [...context2d.getImageData(image.naturalWidth / 2, image.naturalHeight / 2, 1, 1).data];
+    }), [59, 130, 246, 255]);
+    await approval.getByRole("button", { name: "Reject", exact: true }).click();
+    assert.equal((await response).error.code, 4001);
+  }
+  finally {
+    await context?.close();
+    await server.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});

@@ -1,6 +1,6 @@
 import LucideChevronRight from "lucide-solid/icons/chevron-right";
 import LucideEllipsis from "lucide-solid/icons/ellipsis";
-import LucideSmartphone from "lucide-solid/icons/smartphone";
+import LucideWallet from "lucide-solid/icons/wallet";
 import {
   createEffect,
   createResource,
@@ -31,6 +31,7 @@ import { call } from "../../ui/client.js";
 import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
 import { Header } from "../../ui/Header.js";
 import { createPairing } from "../../ui/pairing.js";
+import { SiteIcon, WalletIcon } from "../../ui/WalletIcon.js";
 
 const PairingScreen = lazy(async () => {
   const { PairingScreen } = await import("../../ui/PairingScreen.js");
@@ -46,7 +47,7 @@ const TransportSettings = lazy(async () => {
 type View = "list" | "settings" | "signaling" | "transport" | "connect";
 
 const titles: Record<View, string> = {
-  list: "openlv-connect",
+  list: "Connections",
   settings: "Settings",
   signaling: "Signaling",
   transport: "Transport",
@@ -204,7 +205,7 @@ export const App = (): JSX.Element => {
                       when={(connections() ?? []).length > 0}
                       fallback={(
                         <div class="empty-state">
-                          <LucideSmartphone />
+                          <LucideWallet />
                           <p>No connections yet.</p>
                         </div>
                       )}
@@ -213,12 +214,17 @@ export const App = (): JSX.Element => {
                         <For each={connections()}>
                           {entry => (
                             <div class="connection-row">
-                              <span class="phone-state" classList={{ disconnected: entry.state !== "connected" }} role="img" aria-label={entry.state === "connected" ? "Phone connected" : "Phone not connected"}>
-                                <LucideSmartphone />
-                              </span>
+                              <WalletIcon wallet={entry.wallet} isConnected={entry.state === "connected"} label={entry.state === "connected" ? "Wallet connected" : "Wallet not connected"} />
                               <div class="connection-copy">
                                 <strong>{entry.wallet?.name ?? "Unnamed wallet"}</strong>
-                                <Show when={entry.binding}>{binding => <span>{binding().origin}</span>}</Show>
+                                <Show when={entry.binding}>
+                                  {binding => (
+                                    <span>
+                                      <SiteIcon icon={binding().icon} />
+                                      {binding().origin}
+                                    </span>
+                                  )}
+                                </Show>
                               </div>
                               <details class="row-menu">
                                 <summary aria-label={`Actions for ${entry.wallet?.name ?? "Unnamed wallet"}`}><LucideEllipsis /></summary>

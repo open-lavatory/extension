@@ -92,8 +92,9 @@ const join = async () => {
   setStatus("joining");
 
   try {
+    const icon = new URLSearchParams(globalThis.location.search).get("icon") ?? undefined;
     const session = await connectSession(value, onRequest, [webrtc({ iceServers: [] })], {
-      info: { identity: "sh.openlv.devwallet", name: "Dev Wallet" },
+      info: { identity: "sh.openlv.devwallet", name: "Dev Wallet", ...(icon && { icon }) },
     });
 
     session.status.subscribe(setStatus);

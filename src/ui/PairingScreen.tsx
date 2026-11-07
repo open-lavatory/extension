@@ -4,6 +4,7 @@ import { type JSX, Show } from "solid-js";
 
 import { ConnectionLoading } from "./ConnectionLoading.js";
 import type { Pairing } from "./pairing.js";
+import { WalletIcon } from "./WalletIcon.js";
 
 export const PairingScreen = (properties: {
   pairing: Pairing;
@@ -37,7 +38,10 @@ export const PairingScreen = (properties: {
         <div class="state">
           <LucideCheck />
           <strong>Connected Successfully!</strong>
-          <p>{properties.pairing.connection()?.wallet?.name ?? "Your wallet"}</p>
+          <p class="connected-wallet">
+            <WalletIcon wallet={properties.pairing.connection()?.wallet} isConnected />
+            {properties.pairing.connection()?.wallet?.name ?? "Your wallet"}
+          </p>
         </div>
         <button type="button" class="primary full" onClick={properties.onDone}>Done</button>
       </Show>

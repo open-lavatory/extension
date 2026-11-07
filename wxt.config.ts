@@ -30,7 +30,7 @@ export default defineConfig({
     name: "openlv-connect",
     description:
       "Connect approved sites to wallets over Open Lavatory.",
-    permissions: ["storage", "offscreen", "contextMenus"],
+    permissions: ["storage", "offscreen", "contextMenus", "favicon"],
     action: {},
   },
 });

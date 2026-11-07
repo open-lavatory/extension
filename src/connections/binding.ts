@@ -26,6 +26,7 @@ export const bindOrigin = async (
   connectionId: string,
   origin: string,
   accounts: string[],
+  icon: string | undefined,
 ): Promise<BindResult> => {
   const target = await getConnection(connectionId);
 
@@ -39,7 +40,7 @@ export const bindOrigin = async (
   await connectionStore.setValue(
     current.map((entry) => {
       if (entry.connectionId === connectionId) {
-        return { ...entry, binding: { origin, accounts } };
+        return { ...entry, binding: { origin, accounts, icon } };
       }
 
       // An origin may not hold two connections either, otherwise revoking one

@@ -1,4 +1,3 @@
-import LucideSmartphone from "lucide-solid/icons/smartphone";
 import { createEffect, createResource, createSignal, For, type JSX, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 
 import { getSavedRelay } from "../../connections/relay.js";
@@ -7,6 +6,7 @@ import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
 import { Header } from "../../ui/Header.js";
 import { createPairing } from "../../ui/pairing.js";
 import type { ConnectionView } from "../../ui/port.js";
+import { SiteIcon, WalletIcon } from "../../ui/WalletIcon.js";
 
 const PairingScreen = lazy(async () => {
   const { PairingScreen } = await import("../../ui/PairingScreen.js");
@@ -215,7 +215,10 @@ export const App = (): JSX.Element => {
             <Show when={loaded()} fallback={<p class="empty">This request is no longer waiting.</p>}>
               {request => (
                 <>
-                  <p class="origin">{request().origin}</p>
+                  <p class="origin">
+                    <SiteIcon icon={request().icon} />
+                    {request().origin}
+                  </p>
                   <fieldset class="connection-picker">
                     <legend>Connection</legend>
                     <Show when={request().connections.length > 0} fallback={<p class="empty">Connect a wallet first.</p>}>
@@ -230,10 +233,17 @@ export const App = (): JSX.Element => {
                               disabled={entry.state !== "connected" || isDeciding()}
                               onChange={() => void choose(entry)}
                             />
-                            <span class="phone-state" classList={{ disconnected: entry.state !== "connected" }}><LucideSmartphone /></span>
+                            <WalletIcon wallet={entry.wallet} isConnected={entry.state === "connected"} />
                             <span class="connection-copy">
                               <strong>{entry.wallet?.name ?? "Unnamed wallet"}</strong>
-                              <Show when={entry.binding}>{binding => <span>{binding().origin}</span>}</Show>
+                              <Show when={entry.binding}>
+                                {binding => (
+                                  <span>
+                                    <SiteIcon icon={binding().icon} />
+                                    {binding().origin}
+                                  </span>
+                                )}
+                              </Show>
                             </span>
                           </label>
                         )}

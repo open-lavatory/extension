@@ -50,7 +50,7 @@ export type UiReply
     | { for: "ui:unbind"; result: UiResult<null>; }
     | {
       for: "approve:load";
-      result: UiResult<{ origin: string; connections: ConnectionView[]; }>;
+      result: UiResult<{ origin: string; icon?: string | undefined; connections: ConnectionView[]; }>;
     }
     | { for: "approve:accounts"; result: UiResult<string[]>; }
     | { for: "approve:decide"; result: UiResult<null>; };

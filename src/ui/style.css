@@ -90,10 +90,14 @@ svg { flex-shrink: 0; }
 .connection-list { display: flex; flex-direction: column; }
 .connection-row { display: flex; align-items: center; gap: 12px; min-height: 88px; padding: 16px 0; position: relative; }
 .connection-row + .connection-row { border-top: 1px solid var(--lv-border-color); }
-.phone-state { display: inline-flex; color: var(--lv-text-secondary); }
-.phone-state svg { width: 32px; height: 32px; }
-.phone-state.disconnected { color: var(--lv-text-muted); }
-.phone-state.disconnected svg { stroke-dasharray: 2 2; }
+.wallet-state { display: inline-flex; flex-shrink: 0; color: var(--lv-text-secondary); }
+.wallet-state svg, .wallet-state img { width: 32px; height: 32px; }
+.wallet-state img { border-radius: 8px; object-fit: contain; }
+.wallet-state.disconnected { color: var(--lv-text-muted); }
+.wallet-state.disconnected svg { stroke-dasharray: 2 2; }
+.wallet-state.disconnected img { opacity: .5; }
+.site-icon { width: 16px; height: 16px; margin-right: 6px; border-radius: 4px; vertical-align: -3px; object-fit: contain; }
+.connected-wallet { display: flex; align-items: center; gap: 8px; }
 .connection-copy { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .connection-copy > span { color: var(--lv-text-secondary); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
 .row-menu { position: relative; }
@@ -161,7 +165,7 @@ legend { padding: 0 0 8px; font-weight: 500; font-size: 14px; line-height: 20px;
 .connection-choice { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 0; cursor: pointer; }
 .connection-choice + .connection-choice { border-top: 1px solid var(--lv-border-color); }
 .connection-choice:has(input:disabled) { cursor: default; }
-.connection-choice .phone-state svg { width: 24px; height: 24px; }
+.connection-choice .wallet-state svg, .connection-choice .wallet-state img { width: 24px; height: 24px; }
 .connection-choice strong { font-weight: 500; }
 input[type="radio"], input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; margin: 0; accent-color: var(--lv-primary-background); }
 .transfer-warning { color: var(--lv-text-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }

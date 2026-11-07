@@ -59,6 +59,16 @@ const DISCONNECTED: RpcFailure = {
  */
 const UNBOUND_CHAIN = "0x1";
 
+const siteIcon = async (pageUrl: string): Promise<string | undefined> => {
+  const response = await fetch(new URL(`/_favicon/?pageUrl=${encodeURIComponent(pageUrl)}&size=32`, browser.runtime.getURL("/")));
+
+  if (!response.ok) return undefined;
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+
+  return `data:${response.headers.get("content-type") ?? "image/png"};base64,${btoa(String.fromCodePoint(...bytes))}`;
+};
+
 const views = async (): Promise<ConnectionView[]> => {
   const stored = await listConnections();
 
@@ -127,7 +137,7 @@ export default defineBackground(() => {
    */
   const approvals = new Map<
     string,
-    { origin: string; settle: (decision: Decision) => void; }
+    { origin: string; icon?: string | undefined; settle: (decision: Decision) => void; }
   >();
 
   const emitToOrigin = (
@@ -146,10 +156,10 @@ export default defineBackground(() => {
     for (const port of open) port.postMessage(message);
   };
 
-  const askApproval = async (origin: string): Promise<Decision> => {
+  const askApproval = async (origin: string, icon: string | undefined): Promise<Decision> => {
     const requestId = crypto.randomUUID();
     const decided = new Promise<Decision>((resolve) => {
-      approvals.set(requestId, { origin, settle: resolve });
+      approvals.set(requestId, { origin, icon, settle: resolve });
     });
     const created = await browser.windows.create({
       url: `${browser.runtime.getURL("/approve.html")}?request=${requestId}`,
@@ -182,12 +192,14 @@ export default defineBackground(() => {
   const connectOrigin = async (
     origin: string,
     messageId: string,
+    pageUrl: string | undefined,
   ): Promise<PageResponse> => {
     const existing = await connectionForOrigin(origin);
 
     if (existing?.binding) return answerPage(messageId, existing.binding.accounts);
 
-    const decision = await askApproval(origin);
+    const icon = pageUrl === undefined ? undefined : await siteIcon(pageUrl);
+    const decision = await askApproval(origin, icon);
 
     if (decision.kind === "rejected") return refusePage(messageId, USER_REJECTED);
 
@@ -195,6 +207,7 @@ export default defineBackground(() => {
       decision.connectionId,
       origin,
       decision.accounts,
+      icon,
     );
 
     if (!bound.ok) return refusePage(messageId, UNAUTHORIZED);
@@ -257,6 +270,7 @@ export default defineBackground(() => {
   const handlePageRequest = async (
     origin: string,
     request: PageRequest,
+    pageUrl: string | undefined,
   ): Promise<PageResponse> => {
     const route = routeMethod(request.method);
 
@@ -265,7 +279,7 @@ export default defineBackground(() => {
     }
 
     if (route.kind === "connect") {
-      return await connectOrigin(origin, request.messageId);
+      return await connectOrigin(origin, request.messageId, pageUrl);
     }
 
     if (route.kind === "revoke") {
@@ -360,7 +374,7 @@ export default defineBackground(() => {
           for: "approve:load",
           result: {
             ok: true,
-            value: { origin: waiting.origin, connections: await views() },
+            value: { origin: waiting.origin, icon: waiting.icon, connections: await views() },
           },
         };
       }
@@ -416,7 +430,7 @@ export default defineBackground(() => {
 
       void (async () => {
         try {
-          port.postMessage(await handlePageRequest(origin, message));
+          port.postMessage(await handlePageRequest(origin, message, port.sender?.url));
         }
         catch (error) {
           port.postMessage(
