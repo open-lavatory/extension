@@ -15,6 +15,7 @@ stdenv.mkDerivation (final: {
     fileset = lib.fileset.unions [
       ../package.json
       ../pnpm-workspace.yaml
+      ../public
       ../pnpm-lock.yaml
       ../tsconfig.json
       ../wxt.config.ts
