@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
+import { connect, createServer as createTcpServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -164,7 +165,7 @@ test("origins pair during approval and route only to their bound wallet", { time
     await firstApproval.approval.getByRole("button", { name: "Pair", exact: true }).click();
     await firstApproval.approval.getByRole("button", { name: "Copy Connection URL", exact: true }).waitFor();
     await openPopup();
-    await popup.getByText("No connections yet.", { exact: true }).waitFor();
+    await popup.getByRole("button", { name: "Copy Connection URL", exact: true }).waitFor();
     assert.deepEqual(await popup.evaluate(async () => await chrome.storage.local.get("connections")), historyBeforePair);
     assert.equal(await firstApproval.approval.getByRole("textbox", { name: "Server URL", exact: true }).count(), 0);
     assert.equal(firstSettled, false);
@@ -195,6 +196,8 @@ test("origins pair during approval and route only to their bound wallet", { time
     await openPopup();
     await popup.getByRole("button", { name: "Connect", exact: true }).click();
     const secondWallet = await joinWallet(popup);
+
+    await popup.getByRole("button", { name: "Done", exact: true }).click();
     const pageCount = openedPages;
 
     await firstSite.reload();
@@ -273,6 +276,8 @@ test("origins pair during approval and route only to their bound wallet", { time
     await closed.approval.close();
     assert.equal((await closed.response).error.code, 4001);
     await openPopup();
+    await popup.getByRole("button", { name: "Copy Connection URL", exact: true }).waitFor();
+    await popup.getByRole("button", { name: "Back", exact: true }).click();
     await popup.getByRole("button", { name: "Connect", exact: true }).waitFor();
     assert.equal(await popup.locator(".connection-row").count(), 2);
     assert.deepEqual(await popup.evaluate(async () => await chrome.storage.local.get("connections")), historyBeforeClose);
@@ -337,6 +342,28 @@ test("a refused relay ends on the error screen and Back leaves a stalled pairing
     await popup.getByText("Stored wallet", { exact: true }).waitFor();
     assert.equal(await popup.evaluate(async () => (await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] })).length), 0);
 
+    await popup.evaluate(async () => {
+      [...document.querySelectorAll("button")].find(button => button.textContent === "Connect").click();
+
+      while (!document.querySelector("button[aria-label='Back']")) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
+      document.querySelector("button[aria-label='Back']").click();
+    });
+    await popup.getByText("Stored wallet", { exact: true }).waitFor();
+    await popup.waitForTimeout(1500);
+    assert.equal(await popup.evaluate(async () => (await chrome.storage.session.get("pairing")).pairing), undefined);
+    assert.equal(await popup.getByRole("button", { name: "Back", exact: true }).count(), 0);
+    assert.deepEqual(await popup.evaluate(async () => {
+      try {
+        return Object.keys((await chrome.runtime.sendMessage({ kind: "engine:states" })).result.value);
+      }
+      catch {
+        return [];
+      }
+    }), []);
+
     await popup.getByRole("button", { name: "Connect", exact: true }).click();
     await popup.getByText("Waiting for network connection...", { exact: true }).waitFor();
     await popup.getByRole("button", { name: "Back", exact: true }).click();
@@ -354,6 +381,151 @@ test("a refused relay ends on the error screen and Back leaves a stalled pairing
     await context?.close();
     for (const socket of sockets) socket.destroy();
     relays.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test("a pairing outlives the popup and the service worker", { timeout: 90_000 }, async () => {
+  const profile = await mkdtemp(join(tmpdir(), "openlv-outlive-test-"));
+  const server = await createServer({
+    root: join(root, "dev"),
+    cacheDir: join(profile, "vite"),
+    configFile: false,
+    optimizeDeps: { force: true },
+    logLevel: "error",
+    server: { host: "127.0.0.1", port, strictPort: true },
+  });
+  let context;
+  let delayed;
+
+  try {
+    await server.listen();
+    context = await chromium.launchPersistentContext(profile, {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+      headless: true,
+      viewport: { width: 380, height: 600 },
+      args: [
+        `--disable-extensions-except=${join(root, ".output/chrome-mv3")}`,
+        `--load-extension=${join(root, ".output/chrome-mv3")}`,
+      ],
+    });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
+    const popupUrl = `chrome-extension://${new URL(worker.url()).host}/popup.html`;
+    const openPopup = async () => {
+      const popup = await context.newPage();
+
+      await popup.goto(popupUrl);
+
+      return popup;
+    };
+    const copyUrl = async (popup) => {
+      await popup.getByRole("button", { name: "Copy Connection URL", exact: true }).click();
+
+      return await popup.evaluate(async () => await navigator.clipboard.readText());
+    };
+
+    delayed = createTcpServer((socket) => {
+      socket.pause();
+      setTimeout(() => {
+        const upstream = connect(new URL(relay).port, new URL(relay).hostname);
+
+        socket.pipe(upstream).pipe(socket);
+        socket.resume();
+      }, 2000);
+    });
+
+    await new Promise((resolve) => {
+      delayed.listen(0, "127.0.0.1", resolve);
+    });
+    let popup = await openPopup();
+
+    await popup.evaluate(async (server) => {
+      await chrome.storage.local.set({ signaling: { p: "mqtt", s: { mqtt: server } } });
+    }, `ws://127.0.0.1:${delayed.address().port}`);
+    await popup.getByRole("button", { name: "Connect", exact: true }).click();
+    await popup.getByText("Waiting for network connection...", { exact: true }).waitFor();
+    await popup.close();
+    const cdp = await context.newCDPSession(await context.newPage());
+
+    await cdp.send("ServiceWorker.enable");
+    await cdp.send("ServiceWorker.stopAllWorkers");
+    popup = await openPopup();
+    const firstUrl = await copyUrl(popup);
+
+    await popup.close();
+
+    const wallet = await context.newPage();
+
+    await wallet.goto(`http://localhost:${port}/wallet/`);
+    await wallet.locator("#url").evaluate((field, value) => { field.value = value; }, firstUrl);
+    await wallet.locator("#connect").click();
+    await wallet.locator("body[data-status='connected']").waitFor({ timeout: 30_000 });
+    const opened = await worker.evaluate(async () => {
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        if ((await chrome.runtime.getContexts({ contextTypes: ["POPUP"] })).length > 0) return true;
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      return false;
+    });
+
+    assert.equal(opened, true);
+
+    popup = await openPopup();
+    await popup.getByText("Connected Successfully!", { exact: true }).waitFor({ timeout: 30_000 });
+    await popup.close();
+
+    const site = await context.newPage();
+
+    await site.goto(`http://localhost:${port}/dapp/`);
+    await site.locator("[data-rdns='sh.openlv.connect']").waitFor();
+    const { approval, response } = await beginApproval(context, site);
+
+    await approval.getByRole("radio", { checked: true }).waitFor();
+    await approval.getByRole("checkbox", { checked: true }).first().waitFor();
+    await approval.getByRole("button", { name: "Connect", exact: true }).click();
+    assert.ok((await response).result.length > 0);
+    popup = await openPopup();
+    await popup.locator(".connection-row").waitFor();
+    assert.equal(await popup.locator(".connection-row").count(), 1);
+    assert.equal(await popup.getByText("Connected Successfully!", { exact: true }).count(), 0);
+    await popup.close();
+
+    const otherSite = await context.newPage();
+
+    await otherSite.goto(`http://127.0.0.1:${port}/dapp/`);
+    await otherSite.locator("[data-rdns='sh.openlv.connect']").waitFor();
+    const closing = await beginApproval(context, otherSite);
+
+    await closing.approval.getByRole("button", { name: "Pair", exact: true }).click();
+    const secondUrl = await copyUrl(closing.approval);
+
+    await closing.approval.close();
+    assert.equal((await closing.response).error.code, 4001);
+    const secondWallet = await context.newPage();
+
+    await secondWallet.goto(`http://localhost:${port}/wallet/`);
+    await secondWallet.locator("#url").evaluate((field, value) => { field.value = value; }, secondUrl);
+    await secondWallet.locator("#connect").click();
+    await secondWallet.locator("body[data-status='connected']").waitFor({ timeout: 30_000 });
+    assert.equal(await context.serviceWorkers().at(-1).evaluate(async () => {
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        if ((await chrome.storage.session.get("pairing")).pairing?.connection.state === "connected") break;
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      return (await chrome.runtime.getContexts({ contextTypes: ["POPUP"] })).length;
+    }), 0);
+  }
+  finally {
+    await context?.close();
+    await server.close();
+    delayed?.close();
     await rm(profile, { recursive: true, force: true });
   }
 });

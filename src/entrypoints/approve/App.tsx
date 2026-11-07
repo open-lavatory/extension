@@ -36,7 +36,7 @@ export const App = (): JSX.Element => {
   const [isLoadingAccounts, setLoadingAccounts] = createSignal(false);
   const [isDeciding, setDeciding] = createSignal(false);
   const [isPairing, setPairing] = createSignal(false);
-  const pairing = createPairing();
+  const pairing = createPairing("approval");
   let completingId: string | undefined;
 
   if (requestId) {
@@ -107,6 +107,7 @@ export const App = (): JSX.Element => {
       if (!updated) throw new Error("Could not load the new connection");
 
       setPairing(false);
+      pairing.end();
       await choose(updated);
     }
     catch (error) {
@@ -117,6 +118,15 @@ export const App = (): JSX.Element => {
       if (completingId === targetId) completingId = undefined;
     }
   };
+
+  createEffect(on(() => pairing.connection()?.connectionId, (connectionId, previous) => {
+    if (connectionId) setPairing(true);
+
+    if (!connectionId && previous) {
+      setPairing(false);
+      void refetch();
+    }
+  }));
 
   createEffect(on(() => pairing.connection()?.state, (state) => {
     if (state === "connected") void finishPair();
@@ -139,7 +149,7 @@ export const App = (): JSX.Element => {
 
   const backFromPair = async (): Promise<void> => {
     try {
-      pairing.cancel();
+      pairing.end();
       await refetch();
       setPairing(false);
     }

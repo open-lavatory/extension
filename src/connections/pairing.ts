@@ -1,174 +1,157 @@
-import type { Browser } from "wxt/browser";
+import { browser } from "wxt/browser";
 
 import { engineClose, enginePair, engineVerify } from "../engine/client.js";
 import type { EngineEvent } from "../engine/port.js";
-import type { ConnectionView, PairingCommand, PairingMessage } from "../ui/port.js";
-import { type Connection, getConnection, putConnection } from "./registry.js";
-import { getSignalingSettings, isRelayProtocol, signalingStore } from "./relay.js";
+import { type ConnectionView, pairingStore, type PairingSurface, type PairingView } from "../ui/port.js";
+import { getConnection, putConnection, removeConnection } from "./registry.js";
+import { getSignalingSettings, type Relay, signalingStore } from "./relay.js";
 import { transportStore } from "./settings.js";
 
-type PendingPairing = {
-  connection: Connection;
-  port: Browser.runtime.Port;
-  state: ConnectionView["state"];
-  isComplete: boolean;
-  isChecking: boolean;
-  hasStarted: boolean;
+/**
+ * Every change reads `held.view` and assigns the next value in the same synchronous step after `load()`, so concurrent engine events cannot overwrite each other.
+ * Session storage only carries the record across a service worker restart and to the popup.
+ */
+const held: { view?: PairingView; loading?: Promise<void>; } = {};
+
+const load = async (): Promise<void> => {
+  held.loading ??= (async () => {
+    held.view = await pairingStore.getValue() ?? undefined;
+  })();
+  await held.loading;
 };
 
-const pairings = new Map<string, PendingPairing>();
+const store = async (next: PairingView | undefined): Promise<void> => {
+  held.view = next;
+  await (next ? pairingStore.setValue(next) : pairingStore.removeValue());
+};
 
-const postPairing = (entry: PendingPairing, message: PairingMessage): void => {
-  try {
-    entry.port.postMessage(message);
-  }
-  catch {
+const update = async (connectionId: string, change: (view: PairingView) => PairingView | undefined): Promise<void> => {
+  await load();
+
+  if (held.view?.connection.connectionId === connectionId) await store(change(held.view));
+};
+
+const fail = async (connectionId: string, error: string): Promise<void> => {
+  await engineClose(connectionId);
+  await update(connectionId, view => (view.connection.state === "connected" || view.error
+    ? view
+    : { connection: { ...view.connection, state: "disconnected" }, surface: view.surface, error }));
+};
+
+const finish = async (connectionId: string): Promise<void> => {
+  const verified = await engineVerify(connectionId);
+
+  await load();
+  const view = held.view;
+
+  if (view?.connection.connectionId !== connectionId) return;
+
+  if (!verified.ok) {
+    await fail(connectionId, verified.error);
+
     return;
   }
-};
 
-const stopPairing = async (entry: PendingPairing, error?: string): Promise<void> => {
-  const connectionId = entry.connection.connectionId;
+  const connection = {
+    connectionId,
+    relay: view.connection.relay,
+    createdAt: view.connection.createdAt,
+    wallet: verified.value.wallet ?? view.connection.wallet,
+  };
 
-  if (pairings.get(connectionId) !== entry) return;
+  await putConnection(connection);
 
-  pairings.delete(connectionId);
+  if (held.view?.connection.connectionId === connectionId) {
+    await store({ connection: { ...connection, state: "connected" }, surface: view.surface });
 
-  if (!entry.isComplete && entry.hasStarted) await engineClose(connectionId);
+    if (view.surface === "approval") return;
 
-  if (error) postPairing(entry, { kind: "pair:error", error });
-};
-
-const finishPairing = async (entry: PendingPairing): Promise<void> => {
-  if (entry.isChecking || entry.isComplete) return;
-
-  const connectionId = entry.connection.connectionId;
-
-  entry.isChecking = true;
-
-  try {
-    const verified = await engineVerify(connectionId);
-
-    if (pairings.get(connectionId) !== entry) return;
-
-    if (!verified.ok) throw new Error(verified.error);
-
-    entry.connection = { ...entry.connection, ...(verified.value.wallet && { wallet: verified.value.wallet }) };
-    entry.isComplete = true;
-    await putConnection(entry.connection);
-    entry.state = "connected";
-    postPairing(entry, { kind: "pair:state", connection: { ...entry.connection, state: "connected" } });
-  }
-  catch (error) {
-    entry.isComplete = false;
-
-    if (pairings.get(connectionId) === entry) {
-      await stopPairing(entry, error instanceof Error ? error.message : "Could not connect the wallet");
+    try {
+      await browser.action.openPopup();
     }
-    else {
-      await engineClose(connectionId);
+    catch {
+      // Chrome refuses without a focused browser window and before version 127, and the next open shows Connected anyway.
     }
+
+    return;
   }
+
+  await removeConnection(connectionId);
+  await engineClose(connectionId);
 };
 
-export const openPairing = (port: Browser.runtime.Port): void => {
-  let isClosed = false;
-  let pending: PendingPairing | undefined;
+export const endPairing = async (connectionId: string): Promise<void> => {
+  await update(connectionId, () => undefined);
 
-  port.onDisconnect.addListener(() => {
-    isClosed = true;
-
-    if (pending) void stopPairing(pending);
-  });
-  port.onMessage.addListener((message: unknown) => {
-    if (
-      isClosed
-      || pending
-      || typeof message !== "object"
-      || message === null
-      || !("kind" in message)
-      || message.kind !== "pair:start"
-      || !("connectionId" in message)
-      || typeof message.connectionId !== "string"
-      || !("relay" in message)
-      || typeof message.relay !== "object"
-      || message.relay === null
-      || !("p" in message.relay)
-      || typeof message.relay.p !== "string"
-      || !isRelayProtocol(message.relay.p)
-      || !("s" in message.relay)
-      || typeof message.relay.s !== "string"
-    ) return;
-
-    const command: Extract<PairingCommand, { kind: "pair:start"; }> = {
-      kind: "pair:start",
-      connectionId: message.connectionId,
-      relay: { p: message.relay.p, s: message.relay.s },
-    };
-    const entry: PendingPairing = {
-      connection: { connectionId: command.connectionId, relay: command.relay, createdAt: Date.now() },
-      port,
-      state: "created",
-      isComplete: false,
-      isChecking: false,
-      hasStarted: false,
-    };
-
-    pending = entry;
-    pairings.set(command.connectionId, entry);
-    postPairing(entry, { kind: "pair:state", connection: { ...entry.connection, state: "created" } });
-    void (async () => {
-      try {
-        if (await getConnection(command.connectionId)) throw new Error("That connection already exists");
-
-        const transport = await transportStore.getValue();
-
-        if (isClosed || pairings.get(command.connectionId) !== entry) return;
-
-        entry.hasStarted = true;
-        const paired = await enginePair(command.connectionId, command.relay, transport);
-
-        if (isClosed || pairings.get(command.connectionId) !== entry) {
-          await engineClose(command.connectionId);
-
-          return;
-        }
-
-        if (!paired.ok) throw new Error(paired.error);
-
-        const settings = await getSignalingSettings();
-
-        await signalingStore.setValue({ p: command.relay.p, s: { ...settings.s, [command.relay.p]: command.relay.s } });
-        postPairing(entry, { kind: "pair:ready", url: paired.value.url });
-      }
-      catch (error) {
-        await stopPairing(entry, error instanceof Error ? error.message : "Could not start the connection");
-      }
-    })();
-  });
+  if (!await getConnection(connectionId)) await engineClose(connectionId);
 };
 
-export const didHandlePairingEvent = (message: EngineEvent): boolean => {
-  const pending = pairings.get(message.connectionId);
+export const startPairing = async (connectionId: string, relay: Relay, surface: PairingSurface): Promise<void> => {
+  await load();
+  const previous = held.view;
 
-  if (!pending) return false;
+  await store({ connection: { connectionId, relay, createdAt: Date.now(), state: "created" }, surface });
+
+  if (previous && !await getConnection(previous.connection.connectionId)) await engineClose(previous.connection.connectionId);
+
+  void (async () => {
+    try {
+      const transport = await transportStore.getValue();
+
+      if (held.view?.connection.connectionId !== connectionId) return;
+
+      const paired = await enginePair(connectionId, relay, transport);
+
+      await load();
+
+      if (held.view?.connection.connectionId !== connectionId) {
+        await engineClose(connectionId);
+
+        return;
+      }
+
+      if (!paired.ok) throw new Error(paired.error);
+    }
+    catch (error) {
+      await fail(connectionId, error instanceof Error ? error.message : "Could not start the connection");
+    }
+  })();
+};
+
+const advance = async (connectionId: string, change: (connection: ConnectionView) => ConnectionView): Promise<void> => {
+  await update(connectionId, view => (view.connection.state === "connected" || view.error
+    ? view
+    : { ...view, connection: change(view.connection) }));
+};
+
+export const didHandlePairingEvent = async (message: EngineEvent): Promise<boolean> => {
+  await load();
+  const view = held.view;
+
+  if (view?.connection.connectionId !== message.connectionId || view.connection.state === "connected" || view.error) return false;
 
   if (message.kind === "engine:wallet") {
-    pending.connection = { ...pending.connection, wallet: message.wallet };
+    await advance(message.connectionId, connection => ({ ...connection, wallet: message.wallet }));
   }
-  else if (message.state === "connected" && !pending.isComplete) {
-    pending.state = "linking";
-    void finishPairing(pending);
+  else if (message.state === "disconnected") {
+    await fail(message.connectionId, message.error ?? "Connection closed");
+  }
+  else if (message.state === "connected") {
+    await advance(message.connectionId, connection => ({ ...connection, state: "linking" }));
+    await finish(message.connectionId);
   }
   else {
-    pending.state = message.state;
-  }
+    const { state, url } = message;
 
-  if (message.kind === "engine:state" && message.state === "disconnected" && !pending.isComplete) {
-    void stopPairing(pending, message.error ?? "Connection closed");
-  }
-  else {
-    postPairing(pending, { kind: "pair:state", connection: { ...pending.connection, state: pending.state } });
+    await advance(message.connectionId, connection => ({ ...connection, state }));
+
+    if (url) {
+      const { relay } = view.connection;
+      const settings = await getSignalingSettings();
+
+      await signalingStore.setValue({ p: relay.p, s: { ...settings.s, [relay.p]: relay.s } });
+      await update(message.connectionId, value => ({ ...value, url }));
+    }
   }
 
   return true;

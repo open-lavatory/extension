@@ -2,11 +2,13 @@ import LucideChevronRight from "lucide-solid/icons/chevron-right";
 import LucideEllipsis from "lucide-solid/icons/ellipsis";
 import LucideSmartphone from "lucide-solid/icons/smartphone";
 import {
+  createEffect,
   createResource,
   createSignal,
   For,
   type JSX,
   lazy,
+  on,
   onCleanup,
   Show,
   Suspense,
@@ -53,7 +55,7 @@ const titles: Record<View, string> = {
 
 export const App = (): JSX.Element => {
   const [view, setView] = createSignal<View>("list");
-  const pairing = createPairing();
+  const pairing = createPairing("popup");
   const [connections, { refetch }] = createResource(async () => {
     const reply = await call({ kind: "ui:list" });
 
@@ -70,6 +72,15 @@ export const App = (): JSX.Element => {
   const [failure, setFailure] = createSignal<string | undefined>();
   let saving = Promise.resolve();
   let hasSaveFailure = false;
+
+  createEffect(on(() => pairing.connection()?.connectionId, (connectionId, previous) => {
+    if (connectionId && view() === "list") setView("connect");
+
+    if (!connectionId && previous && view() === "connect") {
+      setView("list");
+      void refetch();
+    }
+  }));
 
   const persist = (write: () => Promise<void>) => {
     const previous = saving;
@@ -155,7 +166,7 @@ export const App = (): JSX.Element => {
     if (hasSaveFailure) return;
 
     if (view() === "connect") {
-      pairing.cancel();
+      pairing.end();
       void refetch();
     }
 
@@ -291,10 +302,14 @@ export const App = (): JSX.Element => {
                     <PairingScreen
                       pairing={pairing}
                       onDone={async () => {
+                        pairing.end();
                         await refetch();
                         setView("list");
                       }}
-                      onRetry={() => void open("signaling")}
+                      onRetry={() => {
+                        pairing.end();
+                        void open("signaling");
+                      }}
                     />
                   </Suspense>
                 </Show>

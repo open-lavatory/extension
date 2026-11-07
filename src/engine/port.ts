@@ -28,7 +28,7 @@ export type EngineResult<T>
     | { ok: false; error: string; code?: number; };
 
 export type EngineReply
-  = | { for: "engine:pair"; result: EngineResult<{ url: string; }>; }
+  = | { for: "engine:pair"; result: EngineResult<null>; }
     | { for: "engine:url"; result: EngineResult<{ url: string; }>; }
     | { for: "engine:send"; result: EngineResult<unknown>; }
     | { for: "engine:verify"; result: EngineResult<{ accounts: string[]; wallet?: Wallet; }>; }
@@ -46,6 +46,7 @@ export type EngineEvent
     connectionId: string;
     state: ConnectionState;
     error?: string;
+    url?: string;
   }
   | { kind: "engine:wallet"; connectionId: string; wallet: Wallet; };
 

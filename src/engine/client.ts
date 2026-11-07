@@ -104,7 +104,7 @@ export const enginePair = async (
   connectionId: string,
   relay: Relay,
   transport: RTCConfiguration,
-): Promise<EngineResult<{ url: string; }>> => {
+): Promise<EngineResult<null>> => {
   await ensureEngine();
 
   const reply = await callEngine({ kind: "engine:pair", connectionId, relay, transport });

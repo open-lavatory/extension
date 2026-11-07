@@ -108,6 +108,7 @@ const watch = (connectionId: string, session: Session): (() => void) => {
       connectionId,
       state: status,
       ...(error && { error }),
+      ...(status === SessionStatus.READY && { url: encodeConnectionURL(session.getHandshakeParameters()) }),
     });
   });
   const unsubscribePeer = session.peerInfo.subscribe((info) => {
@@ -132,8 +133,7 @@ export const pair = async (
   connectionId: string,
   relay: Relay,
   transport: RTCConfiguration,
-): Promise<EngineResult<{ url: string; }>> => {
-  await close(connectionId);
+): Promise<EngineResult<null>> => {
   const attempt = {};
 
   preparing.set(connectionId, attempt);
@@ -160,18 +160,15 @@ export const pair = async (
 
     await session.connect();
 
-    return {
-      ok: true,
-      value: { url: encodeConnectionURL(session.getHandshakeParameters()) },
-    };
+    return { ok: true, value: null };
   }
   catch (error) {
-    await close(connectionId);
+    const message = error instanceof Error ? error.message : "Connection failed";
 
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Connection failed",
-    };
+    await close(connectionId);
+    emit({ kind: "engine:state", connectionId, state: "disconnected", error: message });
+
+    return { ok: false, error: message };
   }
 };
 

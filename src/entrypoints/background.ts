@@ -6,7 +6,7 @@ import {
   connectionForOrigin,
   unbindOrigin,
 } from "../connections/binding.js";
-import { didHandlePairingEvent, openPairing } from "../connections/pairing.js";
+import { didHandlePairingEvent, endPairing, startPairing } from "../connections/pairing.js";
 import {
   type Connection,
   getConnection,
@@ -36,7 +36,6 @@ import {
   type ConnectionView,
   type Decision,
   isUiCommand,
-  PAIRING_PORT,
   type UiCommand,
   type UiReply,
 } from "../ui/port.js";
@@ -301,10 +300,16 @@ export default defineBackground(() => {
         return await forgetConnection(command.connectionId);
       }
 
-      case "ui:cancel-pair": {
-        if (!await getConnection(command.connectionId)) await engineClose(command.connectionId);
+      case "ui:pair": {
+        await startPairing(command.connectionId, command.relay, command.surface);
 
-        return { for: "ui:cancel-pair", result: { ok: true, value: null } };
+        return { for: "ui:pair", result: { ok: true, value: null } };
+      }
+
+      case "ui:end-pair": {
+        await endPairing(command.connectionId);
+
+        return { for: "ui:end-pair", result: { ok: true, value: null } };
       }
 
       case "ui:unbind": {
@@ -357,12 +362,6 @@ export default defineBackground(() => {
   };
 
   browser.runtime.onConnect.addListener((port) => {
-    if (port.name === PAIRING_PORT) {
-      openPairing(port);
-
-      return;
-    }
-
     if (port.name !== PAGE_CHANNEL) return;
 
     // The origin comes from the port, never from the message body: a page can
@@ -407,11 +406,11 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (isEngineEvent(message)) {
-      if (didHandlePairingEvent(message)) return false;
+      void (async () => {
+        if (await didHandlePairingEvent(message)) return;
 
-      if (message.kind === "engine:wallet") {
-        void patchConnection(message.connectionId, { wallet: message.wallet });
-      }
+        if (message.kind === "engine:wallet") await patchConnection(message.connectionId, { wallet: message.wallet });
+      })();
 
       return false;
     }
