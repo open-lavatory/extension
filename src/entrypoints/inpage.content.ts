@@ -1,5 +1,6 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
 
+import openlvIcon from "../assets/openlv.svg?raw";
 import {
   isPageMessage,
   PAGE_CHANNEL,
@@ -7,12 +8,11 @@ import {
   type RpcFailure,
 } from "../rpc/page.js";
 
-const ICON
-  = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMGYxMDE0Ii8+PGNpcmNsZSBjeD0iMTEiIGN5PSIxNiIgcj0iNCIgZmlsbD0iI2U4NzYzZCIvPjxjaXJjbGUgY3g9IjIxIiBjeT0iMTYiIHI9IjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2U4NzYzZCIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+";
+const ICON = `data:image/svg+xml,${encodeURIComponent(openlvIcon)}`;
 
 const PROVIDER_INFO = {
-  name: "OpenLV Connector",
-  rdns: "sh.openlv.connector",
+  name: "openlv-connect",
+  rdns: "sh.openlv.connect",
   icon: ICON,
 };
 
@@ -71,8 +71,25 @@ const createProvider = () => {
     }
   });
 
-  const request = async (call: { method: string; params?: unknown; }) =>
-    await new Promise<unknown>((resolve, reject) => {
+  const request = async (call: unknown): Promise<unknown> => {
+    if (
+      typeof call !== "object"
+      || call === null
+      || !("method" in call)
+      || typeof call.method !== "string"
+      || call.method.length === 0
+    ) {
+      throw new ProviderRpcError({ code: -32_600, message: "Invalid request" });
+    }
+
+    const method = call.method;
+    const parameters = "params" in call ? call.params : undefined;
+
+    if (parameters !== undefined && (typeof parameters !== "object" || parameters === null)) {
+      throw new ProviderRpcError({ code: -32_602, message: "Invalid request params" });
+    }
+
+    return await new Promise<unknown>((resolve, reject) => {
       const messageId = crypto.randomUUID();
 
       waiting.set(messageId, { resolve, reject });
@@ -81,12 +98,13 @@ const createProvider = () => {
         channel: PAGE_CHANNEL,
         kind: "request",
         messageId,
-        method: call.method,
-        ...(call.params !== undefined && { params: call.params }),
+        method,
+        ...(parameters !== undefined && { params: parameters }),
       };
 
       globalThis.postMessage(payload, globalThis.location.origin);
     });
+  };
 
   const provider = {
     isOpenLV: true,

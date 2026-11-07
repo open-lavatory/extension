@@ -6,18 +6,16 @@ import {
   connectionForOrigin,
   unbindOrigin,
 } from "../connections/binding.js";
+import { didHandlePairingEvent, openPairing } from "../connections/pairing.js";
 import {
   type Connection,
   getConnection,
   listConnections,
   patchConnection,
-  putConnection,
   removeConnection,
 } from "../connections/registry.js";
-import { lastRelayStore, type Relay } from "../connections/relay.js";
 import {
   engineClose,
-  enginePair,
   engineSend,
   engineStates,
   engineUrl,
@@ -38,6 +36,7 @@ import {
   type ConnectionView,
   type Decision,
   isUiCommand,
+  PAIRING_PORT,
   type UiCommand,
   type UiReply,
 } from "../ui/port.js";
@@ -62,44 +61,16 @@ const DISCONNECTED: RpcFailure = {
 const UNBOUND_CHAIN = "0x1";
 
 const views = async (): Promise<ConnectionView[]> => {
-  const states = await engineStates();
   const stored = await listConnections();
+
+  if (stored.length === 0) return [];
+
+  const states = await engineStates();
 
   return stored.map(connection => ({
     ...connection,
     state: states[connection.connectionId] ?? "disconnected",
   }));
-};
-
-const pairConnection = async (relay: Relay): Promise<UiReply> => {
-  const connection: Connection = {
-    connectionId: crypto.randomUUID(),
-    relay,
-    createdAt: Date.now(),
-  };
-
-  await putConnection(connection);
-
-  const paired = await enginePair(connection.connectionId, relay);
-
-  if (!paired.ok) {
-    await removeConnection(connection.connectionId);
-
-    return { for: "ui:pair", result: { ok: false, error: paired.error } };
-  }
-
-  await lastRelayStore.setValue(relay);
-
-  return {
-    for: "ui:pair",
-    result: {
-      ok: true,
-      value: {
-        connectionId: connection.connectionId,
-        url: paired.value.url,
-      },
-    },
-  };
 };
 
 const readAccounts = async (connectionId: string): Promise<UiReply> => {
@@ -302,7 +273,8 @@ export default defineBackground(() => {
     const connection = await getConnection(connectionId);
 
     await engineClose(connectionId);
-    await removeConnection(connectionId);
+
+    if (connection) await removeConnection(connectionId);
 
     if (connection?.binding) {
       emitToOrigin(connection.binding.origin, "accountsChanged", []);
@@ -318,10 +290,6 @@ export default defineBackground(() => {
         return { for: "ui:list", result: { ok: true, value: await views() } };
       }
 
-      case "ui:pair": {
-        return await pairConnection(command.relay);
-      }
-
       case "ui:url": {
         return {
           for: "ui:url",
@@ -331,6 +299,12 @@ export default defineBackground(() => {
 
       case "ui:forget": {
         return await forgetConnection(command.connectionId);
+      }
+
+      case "ui:cancel-pair": {
+        if (!await getConnection(command.connectionId)) await engineClose(command.connectionId);
+
+        return { for: "ui:cancel-pair", result: { ok: true, value: null } };
       }
 
       case "ui:unbind": {
@@ -383,6 +357,12 @@ export default defineBackground(() => {
   };
 
   browser.runtime.onConnect.addListener((port) => {
+    if (port.name === PAIRING_PORT) {
+      openPairing(port);
+
+      return;
+    }
+
     if (port.name !== PAGE_CHANNEL) return;
 
     // The origin comes from the port, never from the message body: a page can
@@ -427,6 +407,8 @@ export default defineBackground(() => {
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (isEngineEvent(message)) {
+      if (didHandlePairingEvent(message)) return false;
+
       if (message.kind === "engine:wallet") {
         void patchConnection(message.connectionId, { wallet: message.wallet });
       }
@@ -437,7 +419,15 @@ export default defineBackground(() => {
     if (!isUiCommand(message)) return false;
 
     void (async () => {
-      sendResponse(await handleUi(message));
+      try {
+        sendResponse(await handleUi(message));
+      }
+      catch (error) {
+        sendResponse({
+          for: message.kind,
+          result: { ok: false, error: error instanceof Error ? error.message : "Internal error" },
+        } satisfies UiReply);
+      }
     })();
 
     return true;

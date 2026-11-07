@@ -1,140 +1,110 @@
-# OpenLV Connector
+# openlv-connect
 
-A browser extension that keeps several paired [Open Lavatory](https://openlv.sh)
-connections alive and hands any web3 site an ordinary EIP-1193 provider routed
-to whichever connection you granted it.
+A browser extension that connects approved sites to [Open Lavatory](https://openlv.sh) wallets.
+It injects an EIP-1193 provider and announces it through EIP-6963 alongside providers already on the page.
+It preserves an existing `window.ethereum`.
 
-The site sees a normal injected wallet. You are running a peer to peer session
-to your phone, over infrastructure you chose, with no relay in the middle once
-the handshake is done.
+## Connections
 
-## The model
+Each connection links the extension to a wallet and can serve one origin at a time.
+To connect a phone from a site's approval window, select **Pair** and scan the QR with an OpenLV wallet.
+The new connection is selected when the wallet joins, and the site's request stays pending until you select **Connect** or **Reject**.
+The popup's **Connect** action uses the same QR flow.
+Opening the popup shows saved connections without starting the connection engine.
+An unfinished pairing stays in memory and does not appear in connection history.
+A connection is saved after its encrypted handshake and the wallet's account reply.
+Closing an unfinished pairing cancels it.
+Each signaling protocol keeps its own server URL and uses the modal's default when no URL is saved.
+Signaling and WebRTC transport settings are saved for the next connection.
+Existing connections keep their settings.
 
-A **connection** is what you pair, what the popup lists, and what is either
-free or in use by exactly one site. Pair one by scanning its code with an
-OpenLV compatible wallet.
+A site's first `eth_requestAccounts` opens the approval window.
+Choose a connection and the accounts that the site may see, then select **Connect** or **Reject**.
+An approved origin can request its granted accounts again without another prompt.
+Unapproved origins receive no accounts and cannot send wallet requests.
+Granting a connection to another origin removes the previous grant.
+The approval window shows the previous origin before this transfer.
+Use a second connection to serve two sites at once.
 
-A connection serves one site at a time. Granting it to a second site takes it
-away from the first, and the first is told it was disconnected. To use two
-sites at once, pair a second connection.
-
-The extension approves sites. The wallet approves transactions. Connecting a
-site raises one prompt from the extension; every signature after that is
-confirmed on your phone and nowhere else.
-
-## Status
-
-Working: pairing, the injected provider and its EIP-6963 announcement, the
-approval window, per origin bindings with exclusivity, account selection, and
-request forwarding.
-
-Not working yet:
-
-- **Connections do not survive a browser restart.** `initEncryptionKeys` in
-  `@openlv/core` generates a fresh keypair on every call and ignores the one
-  `SessionConnectionParameters` carries, so a restarted host fails the
-  wallet's `h` check and is rejected as tampering. Fixing it needs the session
-  assembled with an injected keypair, and then the same fix taken upstream.
-  Still true in 0.2.0.
-- No packed `.crx` yet, so no declarative install. Load it unpacked for now.
-- No automated tests.
-
-## Relays
-
-Signaling carries the handshake that sets up a connection. Whoever runs that
-relay sees that two peers met and when, so the choice is yours and it is made
-per connection: the pairing screen asks for a protocol (`mqtt`, `ntfy` or
-`gun`) and a server every time, prefilled with whatever you used last. Each
-connection then carries the relay it was paired on.
-
-The manifest asks for no host permissions at all. WebSocket relays are not
-gated by them, and an HTTP relay works as long as it sends permissive CORS
-headers, which the public ones do. A self hosted relay without those headers
-will fail to connect rather than silently reach out from your browser.
+The extension approves sites.
+The wallet handles signature and transaction approval.
+The development wallet returns fake signatures and transaction hashes without a confirmation prompt or a network broadcast.
 
 ## Development
 
-```bash
-just install
-just dev
+Install the locked dependencies, then build and check:
+
+```sh
+nix develop -c pnpm install --frozen-lockfile
+nix develop -c pnpm exec wxt build
+nix develop -c pnpm exec tsc --noEmit
+nix develop -c pnpm exec eslint
 ```
 
-`just dev` opens Chromium with the extension already loaded and reloads it on
-every save. It needs `web-ext`, which WXT treats as an optional peer: without
-it WXT falls back to printing "load the unpacked extension manually" instead of
-opening anything. The browser is found automatically, and the profile lives in
-`.wxt/chromium-profile` so relays and paired connections survive a restart of
-the dev server.
+The build writes the unpacked extension to `.output/chrome-mv3`.
+Load that directory through `chrome://extensions` with developer mode enabled.
+The development profile lives in `.wxt/chromium-profile`.
 
-`just build` writes a production build to `.output/chrome-mv3` for loading
-through `chrome://extensions`, developer mode, load unpacked.
+## Behavior checks
 
-`just lint`, `just typecheck` and `just build` are the three checks.
+Start a local MQTT broker with WebSocket support at `ws://127.0.0.1:18884`.
+The broker can use this configuration:
 
-## Trying it
-
-1. `just dev`, which opens Chromium with the extension loaded.
-2. Open the popup, pair a connection, and choose the relay for it.
-3. Scan the code with an OpenLV compatible wallet, or use the dev wallet
-   described below.
-4. Visit any dapp with a wallet picker. "OpenLV Connector" appears in the list
-   through EIP-6963. Connecting raises the approval window, where you pick the
-   connection and the accounts that site may see.
-
-## The lab
-
-`dev/lab.mjs` drives a headless Chromium with the extension loaded, so the
-whole flow can be exercised without a phone.
-
-```bash
-just shots   # screenshot every surface into .tmp/lab/shots
-just live    # pair for real against the dev wallet, then connect a dapp
-just lab     # leave a browser open with everything running
+```conf
+listener 18884 127.0.0.1
+protocol websockets
+allow_anonymous true
+persistence false
 ```
 
-`just live` is the end to end run: it pairs over a real relay, joins from
-`dev/wallet` over WebRTC, discovers the provider from `dev/dapp` through
-EIP-6963, walks the approval window, and checks the account reaches the page.
-Both fixtures are served by Vite on port 5174 and are never part of a build.
+With the extension built and the broker running:
 
-The dev wallet answers with anvil's first development account and obviously
-fake signatures. It exists to exercise the extension, not to hold anything.
-
-## Nix
-
-```bash
-nix build
+```sh
+nix develop -c node --test tests/provider.mjs
 ```
 
-Builds the unpacked extension into the store. Flakes only see files tracked by
-git, so a new file has to be staged before the build can find it.
+The suite uses the runner's Chromium through `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+It starts the dev lab on loopback and uses real MQTT and WebRTC connections.
+It checks origin approval, provider coexistence, request routing, rejection, and connection transfer.
+It does not use a phone, real funds, or transaction broadcasts.
 
-Installing it declaratively needs a signed `.crx`, which is the next packaging
-step. The signature there derives the extension id and is not a trust anchor:
-a Nix user pins a store path, so the store hash is the thing being relied on.
-`just keygen` generates the keypair when that lands.
+The development wallet and dApp in `dev/` are never included in the extension build.
+
+```sh
+node dev/lab.mjs shots
+node dev/lab.mjs live
+node dev/lab.mjs open --headed
+```
+
+The lab uses the same loopback broker and writes light and dark screenshots to `.tmp/lab/shots`.
+The live command checks a connection, site approval, a signature answer, a second origin, a rejection, settings reload, and a saved STUN entry.
+QR data is masked in screenshots.
+
+## Deferred work
+
+Connections do not resume after a browser restart.
+The extension currently stores connection metadata and site grants, but no session record or startup restore path.
+Session persistence needs open-lavatory #22, then extension work to save and validate session records, restore offscreen sessions, refresh accounts and chain state, and remove records when a connection is forgotten.
+Pending signature requests must not be replayed.
+The policy for temporary connection loss and dApp disconnect events stays deferred until that work.
+
+There is no signed `.crx` or declarative install package yet.
+The Nix package uses the npm lockfile and does not use local workspace links.
+Its build needs verification after the package release.
 
 ## Architecture
 
-Five contexts, and the split is forced rather than chosen.
+| Context | Responsibility |
+| --- | --- |
+| `src/entrypoints/inpage.content.ts` | EIP-1193 provider and EIP-6963 announcement in the page |
+| `src/entrypoints/bridge.content.ts` | Messages between the page and the worker |
+| `src/entrypoints/background.ts` | Site grants, request routing, and pending approvals |
+| `src/entrypoints/offscreen/` | Live sessions and WebRTC connections |
+| Popup and approval window | Connection management, settings, and account grants |
 
-| context | holds | why |
-| --- | --- | --- |
-| `src/entrypoints/inpage.content.ts` | the EIP-1193 provider, announced over EIP-6963 | a provider has to be a real object in the page's own realm |
-| `src/entrypoints/bridge.content.ts` | nothing | carries messages between the page and the worker |
-| `src/entrypoints/background.ts` | the registry, the bindings, pending approvals | the only context with extension privileges that outlives a navigation |
-| `src/entrypoints/offscreen/` | every live session and its `RTCPeerConnection` | a service worker has no `RTCPeerConnection`, so the transport cannot run there |
-| popup, approve | nothing durable | pairing and approval |
+The worker reads a request's origin from the browser port sender.
+The popup and approval window use the colors, controls, spacing, and motion from `@openlv/modal`.
 
-The popup and the approval window use the token set from `@openlv/modal`, and
-the pairing screen switches on session status the way the modal does: a spinner
-while signaling connects, the code once the session is `ready`, a spinner again
-while the transport links, then the wallet's own name and icon.
+## License
 
-The origin of a request is read from `sender.origin` on the port, never from
-the message body. A page can write anything into a `postMessage` payload and
-nothing into the port it opened.
-
-## Licence
-
-LGPL-3.0-only, matching the rest of Open Lavatory.
+LGPL-3.0-only, matching Open Lavatory.

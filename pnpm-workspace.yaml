@@ -1,6 +1,6 @@
 autoInstallPeers: false
 minimumReleaseAgeExclude:
-  - '@openlv/core@0.2.0'
-  - '@openlv/session@0.2.0'
-  - '@openlv/signaling@0.2.0'
-  - '@openlv/transport@0.2.0'
+  - '@openlv/core@0.3.0'
+  - '@openlv/session@0.3.1'
+  - '@openlv/signaling@0.3.1'
+  - '@openlv/transport@0.3.0'

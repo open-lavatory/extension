@@ -16,9 +16,10 @@ export type RpcPayload = {
 export type ConnectionState = SessionStatus;
 
 export type EngineCommand
-  = | { kind: "engine:pair"; connectionId: string; relay: Relay; }
+  = | { kind: "engine:pair"; connectionId: string; relay: Relay; transport: RTCConfiguration; }
     | { kind: "engine:url"; connectionId: string; }
     | { kind: "engine:send"; connectionId: string; payload: RpcPayload; }
+    | { kind: "engine:verify"; connectionId: string; }
     | { kind: "engine:close"; connectionId: string; }
     | { kind: "engine:states"; };
 
@@ -30,11 +31,14 @@ export type EngineReply
   = | { for: "engine:pair"; result: EngineResult<{ url: string; }>; }
     | { for: "engine:url"; result: EngineResult<{ url: string; }>; }
     | { for: "engine:send"; result: EngineResult<unknown>; }
+    | { for: "engine:verify"; result: EngineResult<{ accounts: string[]; wallet?: Wallet; }>; }
     | { for: "engine:close"; result: EngineResult<null>; }
     | {
       for: "engine:states";
       result: EngineResult<Record<string, ConnectionState>>;
     };
+
+export type EngineFailure = { for: "engine:failed"; error: string; };
 
 export type EngineEvent
   = | {

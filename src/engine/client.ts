@@ -1,9 +1,11 @@
 import { browser } from "wxt/browser";
 
+import type { Wallet } from "../connections/registry.js";
 import type { Relay } from "../connections/relay.js";
 import type {
   ConnectionState,
   EngineCommand,
+  EngineFailure,
   EngineReply,
   EngineResult,
   RpcPayload,
@@ -16,6 +18,8 @@ const engine: { ready?: Promise<void>; } = {};
  * `RTCPeerConnection`, so the transport cannot live in the worker at all.
  */
 const ensureEngine = async (): Promise<void> => {
+  if (await browser.offscreen.hasDocument()) return;
+
   engine.ready ??= (async () => {
     if (await browser.offscreen.hasDocument()) return;
 
@@ -29,9 +33,8 @@ const ensureEngine = async (): Promise<void> => {
   try {
     await engine.ready;
   }
-  catch (error) {
+  finally {
     delete engine.ready;
-    throw error;
   }
 };
 
@@ -45,6 +48,19 @@ const isReplyTo = (
   && reply.for === command.kind
   && "result" in reply;
 
+const isEngineFailure = (reply: unknown): reply is EngineFailure =>
+  typeof reply === "object"
+  && reply !== null
+  && "for" in reply
+  && reply.for === "engine:failed"
+  && "error" in reply
+  && typeof reply.error === "string";
+
+const engineFailed = (message: string): never => {
+  console.error(message);
+  throw new Error(message);
+};
+
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 100;
 
@@ -54,7 +70,9 @@ const RETRY_DELAY_MS = 100;
  * listening. Retrying beats failing the first pairing of every session.
  */
 const callEngine = async (command: EngineCommand): Promise<EngineReply> => {
-  await ensureEngine();
+  if (engine.ready) await engine.ready;
+
+  if (!await browser.offscreen.hasDocument()) throw new Error("The wallet is not connected");
 
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     let reply: unknown;
@@ -66,6 +84,8 @@ const callEngine = async (command: EngineCommand): Promise<EngineReply> => {
       // Nothing is listening yet.
     }
 
+    if (isEngineFailure(reply)) engineFailed(`The engine failed: ${reply.error}`);
+
     if (isReplyTo(command, reply)) return reply;
 
     if (attempt < ATTEMPTS) {
@@ -75,7 +95,7 @@ const callEngine = async (command: EngineCommand): Promise<EngineReply> => {
     }
   }
 
-  throw new Error("The engine did not answer");
+  return engineFailed("The engine did not answer");
 };
 
 const WRONG_COMMAND = "The engine answered the wrong command";
@@ -83,8 +103,11 @@ const WRONG_COMMAND = "The engine answered the wrong command";
 export const enginePair = async (
   connectionId: string,
   relay: Relay,
+  transport: RTCConfiguration,
 ): Promise<EngineResult<{ url: string; }>> => {
-  const reply = await callEngine({ kind: "engine:pair", connectionId, relay });
+  await ensureEngine();
+
+  const reply = await callEngine({ kind: "engine:pair", connectionId, relay, transport });
 
   return reply.for === "engine:pair"
     ? reply.result
@@ -105,19 +128,38 @@ export const engineSend = async (
   connectionId: string,
   payload: RpcPayload,
 ): Promise<EngineResult<unknown>> => {
-  const reply = await callEngine({
-    kind: "engine:send",
-    connectionId,
-    payload,
-  });
+  try {
+    const reply = await callEngine({
+      kind: "engine:send",
+      connectionId,
+      payload,
+    });
 
-  return reply.for === "engine:send"
+    return reply.for === "engine:send"
+      ? reply.result
+      : { ok: false, error: WRONG_COMMAND };
+  }
+  catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "The wallet is not connected", code: 4900 };
+  }
+};
+
+export const engineVerify = async (
+  connectionId: string,
+): Promise<EngineResult<{ accounts: string[]; wallet?: Wallet; }>> => {
+  const reply = await callEngine({ kind: "engine:verify", connectionId });
+
+  return reply.for === "engine:verify"
     ? reply.result
     : { ok: false, error: WRONG_COMMAND };
 };
 
 export const engineClose = async (connectionId: string): Promise<void> => {
   try {
+    if (engine.ready) await engine.ready;
+
+    if (!await browser.offscreen.hasDocument()) return;
+
     await callEngine({ kind: "engine:close", connectionId });
   }
   catch {
@@ -128,6 +170,8 @@ export const engineClose = async (connectionId: string): Promise<void> => {
 export const engineStates = async (): Promise<
   Record<string, ConnectionState>
 > => {
+  if (!await browser.offscreen.hasDocument()) return {};
+
   try {
     const reply = await callEngine({ kind: "engine:states" });
 

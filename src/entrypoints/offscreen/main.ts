@@ -1,14 +1,17 @@
 import { browser } from "wxt/browser";
 
-import { close, pair, send, states, urlOf } from "../../engine/host.js";
-import type { EngineCommand, EngineReply } from "../../engine/port.js";
+import type { EngineCommand, EngineFailure, EngineReply } from "../../engine/port.js";
+
+const engine = import("../../engine/host.js");
 
 const handle = async (command: EngineCommand): Promise<EngineReply> => {
+  const { close, pair, send, states, urlOf, verify } = await engine;
+
   switch (command.kind) {
     case "engine:pair": {
       return {
         for: "engine:pair",
-        result: await pair(command.connectionId, command.relay),
+        result: await pair(command.connectionId, command.relay, command.transport),
       };
     }
 
@@ -29,6 +32,10 @@ const handle = async (command: EngineCommand): Promise<EngineReply> => {
       return { for: "engine:close", result: { ok: true, value: null } };
     }
 
+    case "engine:verify": {
+      return { for: "engine:verify", result: await verify(command.connectionId) };
+    }
+
     case "engine:states": {
       return { for: "engine:states", result: { ok: true, value: states() } };
     }
@@ -46,7 +53,12 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!isEngineCommand(message)) return false;
 
   void (async () => {
-    sendResponse(await handle(message));
+    try {
+      sendResponse(await handle(message));
+    }
+    catch (error) {
+      sendResponse({ for: "engine:failed", error: error instanceof Error ? error.message : String(error) } satisfies EngineFailure);
+    }
   })();
 
   return true;

@@ -53,12 +53,29 @@ const answer = (method: string): object => {
   }
 };
 
-const onRequest = async (message: object): Promise<object> => {
-  const method = "method" in message ? String(message.method) : "unknown";
+const onRequest = async (message: unknown): Promise<object> => {
+  if (
+    typeof message !== "object"
+    || message === null
+    || !("jsonrpc" in message)
+    || message.jsonrpc !== "2.0"
+    || !("id" in message)
+    || !(typeof message["id"] === "string" || typeof message["id"] === "number")
+    || !("method" in message)
+    || typeof message.method !== "string"
+  ) {
+    return {
+      jsonrpc: "2.0",
+      ["id"]: null,
+      error: { code: -32_600, message: "Invalid Request" },
+    };
+  }
+
+  const method = message.method;
 
   note(method);
 
-  return answer(method);
+  return { jsonrpc: "2.0", ["id"]: message["id"], ...answer(method) };
 };
 
 const join = async () => {
@@ -75,7 +92,7 @@ const join = async () => {
   setStatus("joining");
 
   try {
-    const session = await connectSession(value, onRequest, [webrtc()], {
+    const session = await connectSession(value, onRequest, [webrtc({ iceServers: [] })], {
       info: { identity: "sh.openlv.devwallet", name: "Dev Wallet" },
     });
 

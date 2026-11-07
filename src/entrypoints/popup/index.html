@@ -3,10 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OpenLV Connector</title>
+    <title>openlv-connect</title>
   </head>
   <body class="popup">
-    <div id="root"></div>
+    <div id="root" aria-busy="true">
+      <div class="shell">
+        <header class="header">
+          <img class="mark" src="../../assets/openlv.svg" alt="openlv" width="24" height="24" />
+          <h1>openlv-connect</h1>
+          <span aria-hidden="true"></span>
+        </header>
+        <main class="body">
+          <div class="state" role="status" aria-label="Loading connections">
+            <p data-popup-status>Loading connections...</p>
+          </div>
+        </main>
+      </div>
+    </div>
     <script type="module" src="./main.tsx"></script>
   </body>
 </html>

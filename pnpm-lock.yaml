@@ -9,14 +9,17 @@ importers:
   .:
     dependencies:
       '@openlv/core':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: 0.3.0
+        version: 0.3.0
       '@openlv/session':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@openlv/transport':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: 0.3.0
+        version: 0.3.0
+      lucide-solid:
+        specifier: ^0.574.0
+        version: 0.574.0(solid-js@1.9.15)
       qr:
         specifier: ^0.7.0
         version: 0.7.0
@@ -313,17 +316,17 @@ packages:
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
 
-  '@openlv/core@0.2.0':
-    resolution: {integrity: sha512-6PIePyktLl3pr62sFnMs6MWD2Xul+Hg7hOWdb8yQaQ8dhnj4SQ7eX1WVCOzXXP8yOb+MedQCDBeWP1eagGO/xw==}
+  '@openlv/core@0.3.0':
+    resolution: {integrity: sha512-NAGihiOzdqqB5vp7LkLho2GGBKrcRTdc8qK+EQetu54HHG1oyzHFMUuq1sXWqBWL0GyD1C+igMFdM0R1VzLPGA==}
 
-  '@openlv/session@0.2.0':
-    resolution: {integrity: sha512-PRAXw5ZnpFqdY84rH3zqqVL8r/DCb6iW64lYF07wGRdIJRjuTYM7h5Y5H0b0e5zfTvt1/lyE4mC/iuIW/1kr0A==}
+  '@openlv/session@0.3.1':
+    resolution: {integrity: sha512-EbokMXfFPXN6WLecpuKouaWii8QUxQApJusiHzwlXdfJXNDrkXT64PfoM5Fjwbm0YSSkKI/53srOWoi+aS1JXA==}
 
-  '@openlv/signaling@0.2.0':
-    resolution: {integrity: sha512-0/KyI/NznUAbeKCWY1C6sG9SmGR1w11P/Yt/7yyhZngi339XmQZFtYLtBHAH7KWuz0jjuANQZ6yjuhNnfEQl7w==}
+  '@openlv/signaling@0.3.1':
+    resolution: {integrity: sha512-KGtgZbEbsfA1EG5XKiP1BRVrhp2TILXlJef/CrUjytykGZwq/XzG9qtXxTFSFEmW3atpYC2Us5gU064SZamNVg==}
 
-  '@openlv/transport@0.2.0':
-    resolution: {integrity: sha512-vRrYrAM17W5aTsfowb2vJaKu50hPHTZhw3UaIAHMLL6syNcKS022HDaqIkpZuABjgwrW6C9UWd+YqQC9ggslOw==}
+  '@openlv/transport@0.3.0':
+    resolution: {integrity: sha512-zQIJFwzxWYhtUPsBHm50PR2pIDOydnX4FrkI/+vr/gT+W7vZxD25PIICZPqzYGnqBIfQcX07T94MlGul3T4rAg==}
 
   '@oxc-project/types@0.147.0':
     resolution: {integrity: sha512-IJ3s6ltHLp45S0bh7phkX+gJO7A1Wuz2EaqpAhb8WjqDwbzMiWKHhyyT42tskaWjEYXtHtVCPpnBJVT9+dcRLg==}
@@ -1526,6 +1529,7 @@ packages:
   image-size@2.0.2:
     resolution: {integrity: sha512-IRqXKlaXwgSMAMtpNzZa1ZAe8m+Sa1770Dhk8VkSsP9LS+iHD62Zd8FQKs8fbPiagBE7BzoFX23cxFnwshpV6w==}
     engines: {node: '>=16.x'}
+    deprecated: Use latest 2.x please
     hasBin: true
 
   immediate@3.0.6:
@@ -1845,6 +1849,11 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lucide-solid@0.574.0:
+    resolution: {integrity: sha512-fa447+mAsv7nSRgHZLfV7zurB2aFq8ih+q+MqzrZo3ljp6NqMkPXNp+vFXUCaoqTrVQ8N/b3oFcxAjqLKvsD5A==}
+    peerDependencies:
+      solid-js: ^1.4.7
 
   magic-string@1.2.3:
     resolution: {integrity: sha512-Bpb0W2TbLKOZ7vJnOUnVRGq3WL2p+ISV29M6hYPL1AFCpyKZpdr5ytiXoTSSxRVhg8YW7f65+6gbG8WG6PCa/g==}
@@ -3029,17 +3038,17 @@ snapshots:
 
   '@noble/hashes@1.8.0': {}
 
-  '@openlv/core@0.2.0':
+  '@openlv/core@0.3.0':
     dependencies:
       '@noble/ciphers': 1.3.0
       '@noble/curves': 1.9.7
       eventemitter3: 5.0.4
 
-  '@openlv/session@0.2.0':
+  '@openlv/session@0.3.1':
     dependencies:
-      '@openlv/core': 0.2.0
-      '@openlv/signaling': 0.2.0
-      '@openlv/transport': 0.2.0
+      '@openlv/core': 0.3.0
+      '@openlv/signaling': 0.3.1
+      '@openlv/transport': 0.3.0
       eventemitter3: 5.0.4
       globals: 16.5.0
       ts-pattern: 5.9.0
@@ -3047,9 +3056,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@openlv/signaling@0.2.0':
+  '@openlv/signaling@0.3.1':
     dependencies:
-      '@openlv/core': 0.2.0
+      '@openlv/core': 0.3.0
       eventemitter3: 5.0.4
       globals: 16.5.0
       gun: 0.2020.1241
@@ -3059,9 +3068,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@openlv/transport@0.2.0':
+  '@openlv/transport@0.3.0':
     dependencies:
-      '@openlv/core': 0.2.0
+      '@openlv/core': 0.3.0
       eventemitter3: 5.0.4
       globals: 16.5.0
       ts-pattern: 5.9.0
@@ -4541,6 +4550,10 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-solid@0.574.0(solid-js@1.9.15):
+    dependencies:
+      solid-js: 1.9.15
 
   magic-string@1.2.3:
     dependencies:

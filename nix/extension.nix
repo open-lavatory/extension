@@ -7,7 +7,7 @@
   pnpmConfigHook,
 }:
 stdenv.mkDerivation (final: {
-  pname = "openlv-connector";
+  pname = "openlv-connect";
   version = "0.1.0";
 
   src = lib.fileset.toSource {
@@ -29,7 +29,7 @@ stdenv.mkDerivation (final: {
   pnpmDeps = fetchPnpmDeps {
     inherit (final) pname version src;
     fetcherVersion = 4;
-    hash = "sha256-MmMeOU+4Ei43PKqoyxyrxEJKHOU8jaHWGQgONMeArcU=";
+    hash = "sha256-R1wSSYzIeL0p1GUuPpwDXHPasTkqMWxSya81amv9vyc=";
   };
 
   buildPhase = ''
@@ -48,7 +48,7 @@ stdenv.mkDerivation (final: {
   '';
 
   meta = {
-    description = "Browser extension that routes web3 sites to paired OpenLV connections";
+    description = "Browser extension that connects approved sites to OpenLV wallets";
     license = lib.licenses.lgpl3Only;
     platforms = lib.platforms.all;
   };

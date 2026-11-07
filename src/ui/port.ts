@@ -12,9 +12,9 @@ export type Decision
 
 export type UiCommand
   = | { kind: "ui:list"; }
-    | { kind: "ui:pair"; relay: Relay; }
     | { kind: "ui:url"; connectionId: string; }
     | { kind: "ui:forget"; connectionId: string; }
+    | { kind: "ui:cancel-pair"; connectionId: string; }
     | { kind: "ui:unbind"; origin: string; }
     | { kind: "approve:load"; requestId: string; }
     | { kind: "approve:accounts"; requestId: string; connectionId: string; }
@@ -26,9 +26,9 @@ export type UiResult<T>
 
 export type UiReply
   = | { for: "ui:list"; result: UiResult<ConnectionView[]>; }
-    | { for: "ui:pair"; result: UiResult<{ connectionId: string; url: string; }>; }
     | { for: "ui:url"; result: UiResult<{ url: string; }>; }
     | { for: "ui:forget"; result: UiResult<null>; }
+    | { for: "ui:cancel-pair"; result: UiResult<null>; }
     | { for: "ui:unbind"; result: UiResult<null>; }
     | {
       for: "approve:load";
@@ -36,6 +36,37 @@ export type UiReply
     }
     | { for: "approve:accounts"; result: UiResult<string[]>; }
     | { for: "approve:decide"; result: UiResult<null>; };
+
+export const PAIRING_PORT = "openlv-pairing";
+
+export type PairingCommand
+  = | { kind: "pair:start"; connectionId: string; relay: Relay; }
+    | { kind: "pair:keepalive"; };
+
+export type PairingMessage
+  = | { kind: "pair:ready"; url: string; }
+    | { kind: "pair:state"; connection: ConnectionView; error?: string; }
+    | { kind: "pair:error"; error: string; };
+
+export const isPairingMessage = (value: unknown): value is PairingMessage => {
+  if (typeof value !== "object" || value === null || !("kind" in value)) return false;
+
+  if (value.kind === "pair:ready") return "url" in value && typeof value.url === "string";
+
+  if (value.kind === "pair:error") return "error" in value && typeof value.error === "string";
+
+  if (value.kind !== "pair:state" || !("connection" in value)) return false;
+
+  const connection = value.connection;
+
+  return typeof connection === "object"
+    && connection !== null
+    && "connectionId" in connection
+    && typeof connection.connectionId === "string"
+    && "state" in connection
+    && typeof connection.state === "string"
+    && ["created", "signaling", "ready", "linking", "connected", "disconnected"].includes(connection.state);
+};
 
 export const isUiCommand = (message: unknown): message is UiCommand =>
   typeof message === "object"

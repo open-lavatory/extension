@@ -1,118 +1,126 @@
-import { encodeQR } from "qr";
+import LucideChevronRight from "lucide-solid/icons/chevron-right";
+import LucideEllipsis from "lucide-solid/icons/ellipsis";
+import LucideSmartphone from "lucide-solid/icons/smartphone";
 import {
   createResource,
   createSignal,
   For,
   type JSX,
+  lazy,
   onCleanup,
   Show,
+  Suspense,
 } from "solid-js";
 import { browser } from "wxt/browser";
 
 import {
-  isRelayProtocol,
-  lastRelayStore,
+  DEFAULT_RELAY_URLS,
+  getSavedRelay,
+  getSignalingSettings,
   type Relay,
   RELAY_PROTOCOLS,
-  relayLabel,
+  type RelayProtocol,
+  type SignalingSettings,
+  signalingStore,
 } from "../../connections/relay.js";
-import { type ConnectionState, isEngineEvent } from "../../engine/port.js";
+import { transportStore } from "../../connections/settings.js";
+import { isEngineEvent } from "../../engine/port.js";
 import { call } from "../../ui/client.js";
-import type { ConnectionView } from "../../ui/port.js";
+import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
+import { Header } from "../../ui/Header.js";
+import { createPairing } from "../../ui/pairing.js";
 
-type View
-  = | { kind: "list"; }
-    | { kind: "form"; }
-    | { kind: "pair"; connectionId: string; };
+const PairingScreen = lazy(async () => {
+  const { PairingScreen } = await import("../../ui/PairingScreen.js");
 
-const RELAY_HINT: Record<string, string> = {
-  mqtt: "wss://broker.example.org:8081/mqtt",
-  ntfy: "https://ntfy.example.org",
-  gun: "https://gun.example.org/gun",
-};
+  return { default: PairingScreen };
+});
+const TransportSettings = lazy(async () => {
+  const { TransportSettings } = await import("../../ui/TransportSettings.js");
 
-const Mark = (): JSX.Element => (
-  <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-    <circle cx="11" cy="16" r="6" fill="var(--lv-primary-background)" />
-    <circle
-      cx="21"
-      cy="16"
-      r="6"
-      fill="none"
-      stroke="var(--lv-primary-background)"
-      stroke-width="2.5"
-    />
-  </svg>
-);
+  return { default: TransportSettings };
+});
 
-const Spinner = (): JSX.Element => <div class="spinner" />;
+type View = "list" | "settings" | "signaling" | "transport" | "connect";
 
-const stateLabel = (state: ConnectionState): string => {
-  switch (state) {
-    case "connected": {
-      return "connected";
-    }
-
-    case "linking": {
-      return "linking";
-    }
-
-    case "ready": {
-      return "waiting for a scan";
-    }
-
-    case "disconnected": {
-      return "offline";
-    }
-
-    default: {
-      return "connecting";
-    }
-  }
-};
-
-const dotClass = (state: ConnectionState): string => {
-  if (state === "connected") return "dot connected";
-
-  if (state === "disconnected") return "dot disconnected";
-
-  return "dot";
-};
-
-// The wire only bounds the icon size, so vetting what reaches an img src is
-// this renderer job.
-const renderableIcon = (icon?: string): string | undefined => {
-  if (!icon) return undefined;
-
-  const isRenderable
-    = icon.startsWith("data:image/") || icon.startsWith("https://");
-
-  return isRenderable ? icon : undefined;
+const titles: Record<View, string> = {
+  list: "openlv-connect",
+  settings: "Settings",
+  signaling: "Signaling",
+  transport: "Transport",
+  connect: "Connect",
 };
 
 export const App = (): JSX.Element => {
-  const [view, setView] = createSignal<View>({ kind: "list" });
+  const [view, setView] = createSignal<View>("list");
+  const pairing = createPairing();
   const [connections, { refetch }] = createResource(async () => {
     const reply = await call({ kind: "ui:list" });
 
-    return reply.for === "ui:list" && reply.result.ok ? reply.result.value : [];
+    if (reply.for !== "ui:list" || !reply.result.ok) {
+      throw new Error("Could not load connections");
+    }
+
+    return reply.result.value;
   });
-  const [lastRelay] = createResource(async () => await lastRelayStore.getValue());
-  const [protocol, setProtocol] = createSignal<string>("");
-  const [server, setServer] = createSignal("");
-  const [url, setUrl] = createSignal<string | undefined>();
+  const [transport, { mutate: updateTransport }] = createResource(() => view() === "transport", async () => await transportStore.getValue());
+  const [protocol, setProtocol] = createSignal<RelayProtocol>("mqtt");
+  const [servers, setServers] = createSignal<SignalingSettings["s"]>({});
+  const server = () => servers()[protocol()] ?? DEFAULT_RELAY_URLS[protocol()];
   const [failure, setFailure] = createSignal<string | undefined>();
-  const [copied, setCopied] = createSignal(false);
+  let saving = Promise.resolve();
+  let hasSaveFailure = false;
+
+  const persist = (write: () => Promise<void>) => {
+    const previous = saving;
+
+    saving = (async () => {
+      await previous;
+
+      try {
+        await write();
+        hasSaveFailure = false;
+      }
+      catch (error) {
+        hasSaveFailure = true;
+        setFailure(error instanceof Error ? error.message : "Could not save settings");
+      }
+    })();
+  };
+
+  const open = async (next: View) => {
+    await saving;
+
+    if (hasSaveFailure) return;
+
+    setFailure(undefined);
+
+    if (next === "settings" || next === "signaling") {
+      const remembered = await getSignalingSettings();
+
+      setProtocol(remembered.p);
+      setServers(remembered.s);
+    }
+
+    setView(next);
+  };
+
+  const saveProtocol = (p: RelayProtocol) => {
+    const settings = { p, s: servers() };
+
+    setProtocol(p);
+    persist(async () => await signalingStore.setValue(settings));
+  };
+
+  const saveServer = (url: string) => {
+    const settings = { p: protocol(), s: { ...servers(), [protocol()]: url.trim() } };
+
+    setServers(settings.s);
+    persist(async () => await signalingStore.setValue(settings));
+  };
 
   const onRuntimeMessage = (message: unknown) => {
     if (!isEngineEvent(message)) return false;
-
-    const current = view();
-
-    if (message.kind === "engine:state" && current.kind === "pair"
-      && message.connectionId === current.connectionId) {
-      setFailure(message.error);
-    }
 
     void refetch();
 
@@ -122,85 +130,41 @@ export const App = (): JSX.Element => {
   browser.runtime.onMessage.addListener(onRuntimeMessage);
   onCleanup(() => browser.runtime.onMessage.removeListener(onRuntimeMessage));
 
-  const paired = (): ConnectionView | undefined => {
-    const current = view();
+  const connect = async (relay?: Relay) => {
+    await saving;
 
-    if (current.kind !== "pair") return undefined;
+    if (hasSaveFailure) return;
 
-    return (connections() ?? []).find(
-      entry => entry.connectionId === current.connectionId,
-    );
-  };
+    const selected = relay ?? await getSavedRelay();
 
-  // The session runs to READY before ui:pair even answers, so every state
-  // event lands before the pairing view exists. The list is the one place
-  // that always holds the current state.
-  const state = (): ConnectionState => paired()?.state ?? "created";
-  const isPairing = (): boolean =>
-    view().kind === "pair" && state() !== "connected";
-
-  const startForm = (prefill?: Relay) => {
-    const remembered = prefill ?? lastRelay();
-
-    setProtocol(remembered?.p ?? RELAY_PROTOCOLS[0]);
-    setServer(remembered?.s ?? "");
-    setFailure(undefined);
-    setView({ kind: "form" });
-  };
-
-  const pair = async () => {
-    const p = protocol();
-    const s = server().trim();
-
-    if (s === "" || !isRelayProtocol(p)) {
-      setFailure("Choose a protocol and enter a relay address.");
+    if (!selected.s.trim()) {
+      setFailure("Set a signaling server in Settings.");
 
       return;
     }
 
     setFailure(undefined);
-
-    const relay: Relay = { p, s };
-    const reply = await call({ kind: "ui:pair", relay });
-
-    if (reply.for !== "ui:pair") return;
-
-    if (!reply.result.ok) {
-      setFailure(reply.result.error);
-
-      return;
-    }
-
-    setUrl(reply.result.value.url);
-    setCopied(false);
-    setView({ kind: "pair", connectionId: reply.result.value.connectionId });
-    void refetch();
+    setView("connect");
+    await pairing.start(selected);
+    await refetch();
   };
 
-  const copy = async () => {
-    const value = url();
+  const back = async () => {
+    await saving;
 
-    if (!value) return;
+    if (hasSaveFailure) return;
 
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-  };
-
-  const cancel = async () => {
-    const current = view();
-
-    if (current.kind === "pair") {
-      await call({ kind: "ui:forget", connectionId: current.connectionId });
+    if (view() === "connect") {
+      pairing.cancel();
+      void refetch();
     }
 
-    setUrl(undefined);
     setFailure(undefined);
-    setView({ kind: "list" });
-    void refetch();
+    setView(view() === "transport" || view() === "signaling" ? "settings" : "list");
   };
 
-  const forget = async (connectionId: string) => {
-    await call({ kind: "ui:forget", connectionId });
+  const forget = async (targetId: string) => {
+    await call({ kind: "ui:forget", connectionId: targetId });
     void refetch();
   };
 
@@ -211,208 +175,136 @@ export const App = (): JSX.Element => {
 
   return (
     <div class="shell">
-      <header class="header">
-        <Mark />
-        <h1>OpenLV Connector</h1>
-        <Show when={view().kind === "form" || isPairing()}>
-          <button class="tertiary" onClick={() => void cancel()}>
-            cancel
-          </button>
-        </Show>
-      </header>
-
-      <div class="body">
-        <Show when={view().kind === "list"}>
-          <Show
-            when={(connections() ?? []).length > 0}
-            fallback={(
-              <p class="empty">
-                No connections yet. Pair one and it appears here.
-              </p>
-            )}
-          >
-            <For each={connections()}>
-              {entry => (
-                <div class="card tight">
-                  <div class="card-head">
-                    <Show when={renderableIcon(entry.wallet?.icon)}>
-                      {icon => <img class="avatar" src={icon()} alt="" />}
+      <Header
+        title={titles[view()]}
+        onBack={view() === "list" ? undefined : () => void back()}
+        onSettings={view() === "list" ? () => void open("settings") : undefined}
+      />
+      <main class="body">
+        <div class="screen-stack">
+          <Show when={view()} keyed>
+            {screen => (
+              <div
+                class="screen-layer"
+              >
+                <Show when={screen === "list"}>
+                  <Show when={!connections.loading} fallback={<div class="state" role="status" aria-label="Loading connections"><p>Loading connections...</p></div>}>
+                    <Show
+                      when={(connections() ?? []).length > 0}
+                      fallback={(
+                        <div class="empty-state">
+                          <LucideSmartphone />
+                          <p>No connections yet.</p>
+                        </div>
+                      )}
+                    >
+                      <div class="connection-list">
+                        <For each={connections()}>
+                          {entry => (
+                            <div class="connection-row">
+                              <span class="phone-state" classList={{ disconnected: entry.state !== "connected" }} role="img" aria-label={entry.state === "connected" ? "Phone connected" : "Phone not connected"}>
+                                <LucideSmartphone />
+                              </span>
+                              <div class="connection-copy">
+                                <strong>{entry.wallet?.name ?? "Unnamed wallet"}</strong>
+                                <Show when={entry.binding}>{binding => <span>{binding().origin}</span>}</Show>
+                              </div>
+                              <details class="row-menu">
+                                <summary aria-label={`Actions for ${entry.wallet?.name ?? "Unnamed wallet"}`}><LucideEllipsis /></summary>
+                                <div class="menu-items">
+                                  <Show when={entry.state === "disconnected"}>
+                                    <button type="button" onClick={() => void connect(entry.relay)}>Connect</button>
+                                  </Show>
+                                  <Show when={entry.binding}>
+                                    {binding => <button type="button" onClick={() => void unbind(binding().origin)}>Revoke</button>}
+                                  </Show>
+                                  <button type="button" onClick={() => void forget(entry.connectionId)}>Forget</button>
+                                </div>
+                              </details>
+                            </div>
+                          )}
+                        </For>
+                      </div>
                     </Show>
-                    <strong>{entry.wallet?.name ?? "Unnamed wallet"}</strong>
-                    <span class={dotClass(entry.state)} />
-                    <span class="muted">{stateLabel(entry.state)}</span>
-                  </div>
-                  <span class="muted">{relayLabel(entry.relay)}</span>
-                  <Show
-                    when={entry.binding}
-                    fallback={<span class="muted">not in use</span>}
-                  >
-                    {binding => (
-                      <span class="secondary">
-                        in use by
-                        {" "}
-                        {binding().origin}
-                      </span>
-                    )}
+                    <button type="button" class="primary full" onClick={() => void connect()}>Connect</button>
                   </Show>
-                  <div class="card-actions">
-                    <Show when={entry.state === "disconnected"}>
-                      <button
-                        class="tertiary"
-                        onClick={() => startForm(entry.relay)}
-                      >
-                        pair again
-                      </button>
-                    </Show>
-                    <Show when={entry.binding}>
-                      {binding => (
-                        <button
-                          class="tertiary"
-                          onClick={() => void unbind(binding().origin)}
-                        >
-                          revoke
-                        </button>
+                </Show>
+
+                <Show when={screen === "settings"}>
+                  <nav class="settings-menu" aria-label="Settings">
+                    <button type="button" onClick={() => void open("signaling")}>
+                      <span>Signaling</span>
+                      <span class="menu-value">{protocol().toUpperCase()}</span>
+                      <LucideChevronRight />
+                    </button>
+                    <button type="button" onClick={() => void open("transport")}>
+                      <span>Transport</span>
+                      <span class="menu-value">WebRTC</span>
+                      <LucideChevronRight />
+                    </button>
+                  </nav>
+                </Show>
+
+                <Show when={screen === "signaling"}>
+                  <div class="signaling-settings">
+                    <div class="settings-row">
+                      <span id="protocol-label">Protocol</span>
+                      <div class="protocol-options" role="group" aria-labelledby="protocol-label">
+                        <For each={RELAY_PROTOCOLS}>
+                          {option => <button type="button" aria-pressed={protocol() === option} onClick={() => saveProtocol(option)}>{option.toUpperCase()}</button>}
+                        </For>
+                      </div>
+                    </div>
+                    <div class="settings-row">
+                      <label for="server">Server</label>
+                      <input
+                        id="server"
+                        aria-label="Server URL"
+                        value={server()}
+                        placeholder="Server URL"
+                        onInput={event => saveServer(event.currentTarget.value)}
+                        spellcheck={false}
+                        autocomplete="off"
+                      />
+                    </div>
+                  </div>
+                </Show>
+
+                <Show when={screen === "transport"}>
+                  <Suspense fallback={<p class="empty">Loading settings...</p>}>
+                    <Show when={transport()} fallback={<p class="empty">Loading settings...</p>}>
+                      {config => (
+                        <TransportSettings
+                          value={config()}
+                          onChange={(value) => {
+                            updateTransport(value);
+                            persist(async () => await transportStore.setValue(value));
+                          }}
+                        />
                       )}
                     </Show>
-                    <button
-                      class="tertiary"
-                      onClick={() => void forget(entry.connectionId)}
-                    >
-                      forget
-                    </button>
-                  </div>
-                </div>
-              )}
-            </For>
-          </Show>
+                  </Suspense>
+                </Show>
 
-          <button class="primary full" onClick={() => startForm()}>
-            Pair a connection
-          </button>
-        </Show>
-
-        <Show when={view().kind === "form"}>
-          <div class="card">
-            <span class="section-label">relay for this connection</span>
-            <p class="muted">
-              The relay carries the handshake and nothing after it. Each
-              connection uses its own, so this is asked every time.
-            </p>
-            <label>
-              protocol
-              <select
-                value={protocol()}
-                onChange={event => setProtocol(event.currentTarget.value)}
-              >
-                <For each={RELAY_PROTOCOLS}>
-                  {option => <option value={option}>{option}</option>}
-                </For>
-              </select>
-            </label>
-            <label>
-              server
-              <input
-                type="text"
-                value={server()}
-                placeholder={RELAY_HINT[protocol()] ?? ""}
-                onInput={event => setServer(event.currentTarget.value)}
-              />
-            </label>
-          </div>
-          <Show when={failure()}>
-            {message => <p class="bad">{message()}</p>}
-          </Show>
-          <button class="primary full" onClick={() => void pair()}>
-            Start pairing
-          </button>
-        </Show>
-
-        <Show when={view().kind === "pair"}>
-          <Show when={state() === "created" || state() === "signaling"}>
-            <div class="state">
-              <Spinner />
-              <div>
-                <h2>Connecting</h2>
-                <p>Reaching the relay you chose.</p>
-              </div>
-            </div>
-          </Show>
-
-          <Show when={state() === "ready"}>
-            <div class="card">
-              <Show when={url()}>
-                {value => (
-                  <div class="qr-frame">
-                    <button
-                      title="Click to copy the connection url"
-                      onClick={() => void copy()}
-                      innerHTML={encodeQR(value(), "svg", {
-                        optimize: true,
-                        encoding: "byte",
-                        border: 2,
-                      })}
+                <Show when={screen === "connect"}>
+                  <Suspense fallback={<ConnectionLoading />}>
+                    <PairingScreen
+                      pairing={pairing}
+                      onDone={async () => {
+                        await refetch();
+                        setView("list");
+                      }}
+                      onRetry={() => void open("signaling")}
                     />
-                  </div>
-                )}
-              </Show>
-              <button class="secondary full" onClick={() => void copy()}>
-                {copied() ? "Copied" : "Copy connection url"}
-              </button>
-            </div>
-            <p class="secondary">Scan this code with your wallet.</p>
-          </Show>
-
-          <Show when={state() === "linking"}>
-            <div class="state">
-              <Spinner />
-              <div>
-                <h2>Establishing connection</h2>
-                <p>This can take a few seconds.</p>
+                  </Suspense>
+                </Show>
               </div>
-            </div>
+            )}
           </Show>
-
-          <Show when={state() === "connected"}>
-            <div class="state">
-              <Show
-                when={renderableIcon(paired()?.wallet?.icon)}
-                fallback={<div class="tick">✓</div>}
-              >
-                {icon => <img class="avatar" src={icon()} alt="" />}
-              </Show>
-              <div>
-                <h2>Connected</h2>
-                <p>
-                  {paired()?.wallet?.name ?? "Your wallet"}
-                  {" "}
-                  is paired and free to use.
-                </p>
-              </div>
-              <button
-                class="primary"
-                onClick={() => {
-                  setView({ kind: "list" });
-                  void refetch();
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </Show>
-
-          <Show when={state() === "disconnected"}>
-            <div class="state">
-              <div>
-                <h2>Pairing failed</h2>
-                <p>{failure() ?? "The connection dropped before it linked."}</p>
-              </div>
-              <button class="secondary" onClick={() => startForm()}>
-                Try again
-              </button>
-            </div>
-          </Show>
-        </Show>
-      </div>
+        </div>
+        <Show when={failure()}>{message => <p class="bad" role="alert">{message()}</p>}</Show>
+        <Show when={connections.error}><p class="bad" role="alert">Could not load connections.</p></Show>
+      </main>
     </div>
   );
 };
