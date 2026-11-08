@@ -8,7 +8,7 @@
 }:
 stdenv.mkDerivation (final: {
   pname = "openlv-connect";
-  version = "0.1.0";
+  version = (lib.importJSON ../package.json).version;
 
   src = lib.fileset.toSource {
     root = ../.;
