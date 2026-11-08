@@ -81,8 +81,54 @@ jobs:
           path: release/
           if-no-files-found: error
 
-  attest:
+  sign:
     needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: release
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+
+      - name: Pack crx
+        env:
+          CRX_KEY: ${{ secrets.CRX_KEY }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          name="openlv-connect-${TAG#v}-chrome"
+          unzip -q "release/$name.zip" -d "$RUNNER_TEMP/extension"
+          if [ -n "$(find "$RUNNER_TEMP/extension" ! -type f ! -type d)" ]; then
+            echo "The zip has entries that are not regular files" >&2
+            exit 1
+          fi
+          key=$(mktemp "$RUNNER_TEMP/crx-key.XXXXXX")
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$CRX_KEY" > "$key"
+          unset CRX_KEY
+          id() { sha256sum | cut -c1-32 | tr 0-9a-f a-p; }
+          crx_id=$(openssl pkey -in "$key" -pubout -outform DER | id)
+          manifest_id=$(jq -r .key "$RUNNER_TEMP/extension/manifest.json" | base64 -d | id)
+          if [ "$crx_id" != "$manifest_id" ]; then
+            echo "The crx ID $crx_id does not match the manifest key ID $manifest_id" >&2
+            exit 1
+          fi
+          google-chrome --pack-extension="$RUNNER_TEMP/extension" --pack-extension-key="$key"
+          mkdir signed
+          mv "$RUNNER_TEMP/extension.crx" "signed/$name.crx"
+          cd signed
+          sha256sum "$name.crx" > "$name.crx.sha256"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: crx
+          path: signed/
+          if-no-files-found: error
+
+  attest:
+    needs: [build, sign]
     runs-on: ubuntu-24.04
     permissions:
       id-token: write
@@ -93,12 +139,27 @@ jobs:
           name: release
           path: release
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: crx
+          path: signed
+
+      - name: Check release files
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          name="openlv-connect-${TAG#v}-chrome"
+          diff <(ls release) <(printf '%s\n' "$name.zip" "$name.zip.sha256")
+          diff <(ls signed) <(printf '%s\n' "$name.crx" "$name.crx.sha256")
+
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: release/*.zip
+          subject-path: |
+            release/*.zip
+            signed/*.crx
 
   release:
-    needs: [build, attest]
+    needs: [build, sign, attest]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -108,15 +169,24 @@ jobs:
           name: release
           path: release
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: crx
+          path: signed
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
+          name="openlv-connect-${TAG#v}-chrome"
+          diff <(ls release) <(printf '%s\n' "$name.zip" "$name.zip.sha256")
+          diff <(ls signed) <(printf '%s\n' "$name.crx" "$name.crx.sha256")
           (cd release && sha256sum --check --strict ./*.sha256)
+          (cd signed && sha256sum --check --strict ./*.sha256)
           if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" release/* --clobber
+            gh release upload "$TAG" release/* signed/* --clobber
           else
-            gh release create "$TAG" release/* --verify-tag --title "$TAG" --generate-notes
+            gh release create "$TAG" release/* signed/* --verify-tag --title "$TAG" --generate-notes
           fi

@@ -30,6 +30,7 @@ export default defineConfig({
     name: "openlv-connect",
     description:
       "Connect and manage openlv connections",
+    key: "MIIBJDANBgkqhkiG9w0BAQEFAAOCAREAMIIBDAKCAQEA3dUJMGVpf2Dpbjb7V2zsrIIfDc1KisKT6Sldud8y+bVKEVLfVTzk/nSUGxpnfehZSp1c8Rlc9sBYnV7ZUzgiorm1DHpBzXwueVTt5+lqSvZGIasKZvidUU5XKBjKxjd23HliONZeVR+jyKDGc/LQeHybOx+SDOFWCcp908epw7qbkcCjHdTrRLZ7zWTRwx7ICDQ8PRDGPwDksD8Yu6M3i8dGfeBymNcGXurfPND0jtEwC2FSY/5u8Kbj6u77GPeXcwFMwAarG5wj0g2DcCRe2VGD6Yugn+UNthYPmMEu6FJCcYXgGgKTwsKWguIccHFg3KpakfD21Ub3/bARBuVW3wIFAREFgbM=",
     permissions: ["storage", "offscreen", "contextMenus", "favicon"],
     action: {},
   },
