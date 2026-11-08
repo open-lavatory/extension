@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "openlv-connect"
+  },
+  "extDescription": {
+    "message": "Connect and manage openlv connections"
+  }
+}

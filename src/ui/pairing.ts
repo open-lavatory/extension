@@ -1,6 +1,7 @@
 import { type Accessor, createSignal, onCleanup } from "solid-js";
 
 import type { Relay } from "../connections/relay.js";
+import { t } from "../i18n/catalogue.js";
 import { call } from "./client.js";
 import { type ConnectionView, pairingStore, type PairingSurface, type PairingView } from "./port.js";
 
@@ -71,7 +72,7 @@ export const createPairing = (surface: PairingSurface): Pairing => {
         setCopied(true);
       }
       catch {
-        setFailure("Could not copy the connection URL");
+        setFailure(t("errors.couldNotCopyUrl"));
       }
     },
   };

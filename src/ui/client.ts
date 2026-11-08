@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser";
 
+import { t } from "../i18n/catalogue.js";
 import type { UiCommand, UiReply } from "./port.js";
 
 export const call = async (command: UiCommand): Promise<UiReply> => {
@@ -11,7 +12,7 @@ export const call = async (command: UiCommand): Promise<UiReply> => {
     || !("for" in reply)
     || reply.for !== command.kind
   ) {
-    throw new Error("The extension did not answer");
+    throw new Error(t("errors.extensionDidNotAnswer"));
   }
 
   return reply as UiReply;

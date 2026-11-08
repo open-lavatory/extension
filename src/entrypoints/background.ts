@@ -21,6 +21,7 @@ import {
   engineUrl,
 } from "../engine/client.js";
 import { isEngineEvent } from "../engine/port.js";
+import { t } from "../i18n/catalogue.js";
 import {
   answerPage,
   isPageMessage,
@@ -119,7 +120,7 @@ export default defineBackground(() => {
 
   browser.runtime.onInstalled.addListener(({ reason }) => {
     void browser.contextMenus.removeAll().then(() => {
-      browser.contextMenus.create({ ["id"]: "how-it-works", title: "How it works", contexts: ["action"] });
+      browser.contextMenus.create({ ["id"]: "how-it-works", title: t("menu.howItWorks"), contexts: ["action"] });
     });
 
     if (reason === "install") void openWelcome();
@@ -366,7 +367,7 @@ export default defineBackground(() => {
         if (!waiting) {
           return {
             for: "approve:load",
-            result: { ok: false, error: "This request is no longer waiting" },
+            result: { ok: false, error: t("approval.noLongerWaiting") },
           };
         }
 
@@ -389,7 +390,7 @@ export default defineBackground(() => {
         if (!waiting) {
           return {
             for: "approve:decide",
-            result: { ok: false, error: "This request is no longer waiting" },
+            result: { ok: false, error: t("approval.noLongerWaiting") },
           };
         }
 

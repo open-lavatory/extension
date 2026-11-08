@@ -18,14 +18,15 @@ import { encodeQR } from "qr";
 import { createSignal, For, type JSX, onCleanup, Show } from "solid-js";
 
 import mark from "../../assets/openlv.svg";
+import { t } from "../../i18n/catalogue.js";
 import type { Playback } from "./timeline.js";
 
 export type Peer = "phone" | "desktop" | "web";
 
 export const PEER_NAME: Record<Peer, string> = {
-  phone: "Example Wallet",
-  desktop: "Example Desktop",
-  web: "Example Multisig",
+  phone: t("onboarding.wallet.phoneName"),
+  desktop: t("onboarding.wallet.desktopName"),
+  web: t("onboarding.wallet.webName"),
 };
 
 export const ORIGIN = "swap.example";
@@ -103,7 +104,7 @@ export const Scene = (properties: {
       <Show when={!properties.timeline.isReduced()}>
         <div class="visual-controls">
           {properties.controls}
-          <button type="button" class="icon-button" aria-label={properties.timeline.isPaused() ? "Play animation" : "Pause animation"} onClick={() => properties.timeline.togglePaused()}>
+          <button type="button" class="icon-button" aria-label={t(properties.timeline.isPaused() ? "onboarding.animation.play" : "onboarding.animation.pause")} onClick={() => properties.timeline.togglePaused()}>
             <Show when={properties.timeline.isPaused()} fallback={<Pause size={16} />}><Play size={16} /></Show>
           </button>
         </div>
@@ -179,14 +180,14 @@ const ConnectPrompt = (properties: { okRef: (element: HTMLElement) => void; }): 
     <Mark size={36} />
     <strong>openlv-connect</strong>
     <span class="wallet-identity">sh.openlv.connect</span>
-    <p>wants to connect</p>
+    <p>{t("onboarding.wallet.wantsToConnect")}</p>
     <label class="wallet-account">
       <input type="checkbox" checked />
       <span>{ACCOUNT}</span>
     </label>
     <div class="wallet-actions">
-      <span class="secondary">Dismiss</span>
-      <span class="primary" ref={properties.okRef}>Connect</span>
+      <span class="secondary">{t("onboarding.wallet.dismiss")}</span>
+      <span class="primary" ref={properties.okRef}>{t("actions.connect")}</span>
     </div>
   </div>
 );
@@ -196,11 +197,11 @@ const SignPrompt = (properties: { okRef: (element: HTMLElement) => void; }): JSX
     <Mark size={36} />
     <strong>openlv-connect</strong>
     <span class="wallet-identity">sh.openlv.connect</span>
-    <span class="wallet-label">Sign</span>
+    <span class="wallet-label">{t("onboarding.wallet.sign")}</span>
     <p class="wallet-message">Hello, world!</p>
     <div class="wallet-actions">
-      <span class="secondary">Reject</span>
-      <span class="primary" ref={properties.okRef}>Approve</span>
+      <span class="secondary">{t("actions.reject")}</span>
+      <span class="primary" ref={properties.okRef}>{t("onboarding.wallet.approve")}</span>
     </div>
   </div>
 );
@@ -211,7 +212,7 @@ const WalletConnected = (): JSX.Element => (
       <Mark size={28} />
       <span>
         <strong>openlv-connect</strong>
-        <span class="wallet-live">Connected</span>
+        <span class="wallet-live">{t("onboarding.wallet.connected")}</span>
       </span>
     </div>
     <Skeleton width={120} />
@@ -221,13 +222,13 @@ const WalletConnected = (): JSX.Element => (
 
 const LinkHome = (properties: { isTyped: boolean; fieldRef: (element: HTMLElement) => void; goRef: (element: HTMLElement) => void; }): JSX.Element => (
   <div class="wallet-link">
-    <span class="wallet-link-label">Connect with link</span>
+    <span class="wallet-link-label">{t("onboarding.wallet.connectWithLink")}</span>
     <span class="wallet-field" ref={properties.fieldRef}>
-      <Show when={properties.isTyped} fallback={<span class="wallet-placeholder">Paste an openlv:// link</span>}>
+      <Show when={properties.isTyped} fallback={<span class="wallet-placeholder">{t("onboarding.wallet.pasteLink")}</span>}>
         <span class="wallet-typed">{LINK}</span>
       </Show>
     </span>
-    <span class="primary full" ref={properties.goRef}>Connect</span>
+    <span class="primary full" ref={properties.goRef}>{t("actions.connect")}</span>
   </div>
 );
 
@@ -259,8 +260,8 @@ const WalletBody = (properties: { views: WalletViews; home: JSX.Element; timelin
     <Show when={properties.views.hardware !== undefined}>
       <Layer when={!!properties.views.hardware} class="state">
         <Usb />
-        <strong>Confirm on your device</strong>
-        <p>Example Key</p>
+        <strong>{t("onboarding.wallet.confirmOnDevice")}</strong>
+        <p>{t("onboarding.wallet.keyName")}</p>
       </Layer>
     </Show>
   </div>
@@ -288,7 +289,7 @@ export const Phone = (properties: { timeline: Playback; views: WalletViews; isMo
             <Skeleton width={70} />
             <span class="secondary full">
               <Camera size={18} />
-              Scan
+              {t("onboarding.wallet.scan")}
             </span>
           </div>
         )}
@@ -352,11 +353,11 @@ export const WebWallet = (properties: { timeline: Playback; views: WalletViews; 
       </div>
       <Show when={properties.isCardOpen !== undefined}>
         <div class="web-wallet-card" classList={{ hidden: !properties.isCardOpen }}>
-          <span class="web-wallet-card-label">Connection URL</span>
+          <span class="web-wallet-card-label">{t("onboarding.wallet.connectionUrl")}</span>
           <span class="wallet-field" ref={properties.timeline.target("web-field")}>
             <Show when={properties.isTyped}><span class="wallet-typed">{LINK}</span></Show>
           </span>
-          <span class="primary full" ref={properties.timeline.target("web-go")}>Connect</span>
+          <span class="primary full" ref={properties.timeline.target("web-go")}>{t("actions.connect")}</span>
         </div>
       </Show>
     </div>
@@ -368,7 +369,7 @@ export const HardwareKey = (properties: { isShown: boolean; isLit: boolean; isDo
     <i class="cable" />
     <div class="hardware-key" classList={{ lit: properties.isLit }} ref={properties.keyRef}>
       <Usb size={18} />
-      <span>Example Key</span>
+      <span>{t("onboarding.wallet.keyName")}</span>
       <Show when={properties.isDone}><Check size={16} class="hardware-done" /></Show>
     </div>
   </div>

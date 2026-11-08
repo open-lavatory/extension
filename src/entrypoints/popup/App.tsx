@@ -27,6 +27,7 @@ import {
 } from "../../connections/relay.js";
 import { transportStore } from "../../connections/settings.js";
 import { isEngineEvent } from "../../engine/port.js";
+import { t } from "../../i18n/catalogue.js";
 import { call } from "../../ui/client.js";
 import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
 import { Header } from "../../ui/Header.js";
@@ -47,11 +48,11 @@ const TransportSettings = lazy(async () => {
 type View = "list" | "settings" | "signaling" | "transport" | "connect";
 
 const titles: Record<View, string> = {
-  list: "Connections",
-  settings: "Settings",
-  signaling: "Signaling",
-  transport: "Transport",
-  connect: "Connect",
+  list: t("popup.title"),
+  settings: t("settings.title"),
+  signaling: t("settings.signaling.title"),
+  transport: t("settings.transport.title"),
+  connect: t("pairing.title"),
 };
 
 export const App = (): JSX.Element => {
@@ -95,7 +96,7 @@ export const App = (): JSX.Element => {
       }
       catch (error) {
         hasSaveFailure = true;
-        setFailure(error instanceof Error ? error.message : "Could not save settings");
+        setFailure(error instanceof Error ? error.message : t("popup.couldNotSaveSettings"));
       }
     })();
   };
@@ -150,7 +151,7 @@ export const App = (): JSX.Element => {
     const selected = relay ?? await getSavedRelay();
 
     if (!selected.s.trim()) {
-      setFailure("Set a signaling server in Settings.");
+      setFailure(t("popup.setSignalingServer"));
 
       return;
     }
@@ -200,13 +201,13 @@ export const App = (): JSX.Element => {
                 class="screen-layer"
               >
                 <Show when={screen === "list"}>
-                  <Show when={!connections.loading} fallback={<div class="state" role="status" aria-label="Loading connections"><p>Loading connections...</p></div>}>
+                  <Show when={!connections.loading} fallback={<div class="state" role="status"><p>{t("popup.loadingConnections")}</p></div>}>
                     <Show
                       when={(connections() ?? []).length > 0}
                       fallback={(
                         <div class="empty-state">
                           <LucideWallet />
-                          <p>No connections yet.</p>
+                          <p>{t("popup.noConnections")}</p>
                         </div>
                       )}
                     >
@@ -214,9 +215,9 @@ export const App = (): JSX.Element => {
                         <For each={connections()}>
                           {entry => (
                             <div class="connection-row">
-                              <WalletIcon wallet={entry.wallet} isConnected={entry.state === "connected"} label={entry.state === "connected" ? "Wallet connected" : "Wallet not connected"} />
+                              <WalletIcon wallet={entry.wallet} isConnected={entry.state === "connected"} label={t(entry.state === "connected" ? "popup.walletConnected" : "popup.walletNotConnected")} />
                               <div class="connection-copy">
-                                <strong>{entry.wallet?.name ?? "Unnamed wallet"}</strong>
+                                <strong>{entry.wallet?.name ?? t("wallet.unnamed")}</strong>
                                 <Show when={entry.binding}>
                                   {binding => (
                                     <span>
@@ -227,15 +228,15 @@ export const App = (): JSX.Element => {
                                 </Show>
                               </div>
                               <details class="row-menu">
-                                <summary aria-label={`Actions for ${entry.wallet?.name ?? "Unnamed wallet"}`}><LucideEllipsis /></summary>
+                                <summary aria-label={t("popup.actionsFor", { name: entry.wallet?.name ?? t("wallet.unnamed") })}><LucideEllipsis /></summary>
                                 <div class="menu-items">
                                   <Show when={entry.state === "disconnected"}>
-                                    <button type="button" onClick={() => void connect(entry.relay)}>Connect</button>
+                                    <button type="button" onClick={() => void connect(entry.relay)}>{t("actions.connect")}</button>
                                   </Show>
                                   <Show when={entry.binding}>
-                                    {binding => <button type="button" onClick={() => void unbind(binding().origin)}>Revoke</button>}
+                                    {binding => <button type="button" onClick={() => void unbind(binding().origin)}>{t("actions.revoke")}</button>}
                                   </Show>
-                                  <button type="button" onClick={() => void forget(entry.connectionId)}>Forget</button>
+                                  <button type="button" onClick={() => void forget(entry.connectionId)}>{t("actions.forget")}</button>
                                 </div>
                               </details>
                             </div>
@@ -243,20 +244,20 @@ export const App = (): JSX.Element => {
                         </For>
                       </div>
                     </Show>
-                    <button type="button" class="primary full" onClick={() => void connect()}>Connect</button>
+                    <button type="button" class="primary full" onClick={() => void connect()}>{t("actions.connect")}</button>
                   </Show>
                 </Show>
 
                 <Show when={screen === "settings"}>
-                  <nav class="settings-menu" aria-label="Settings">
+                  <nav class="settings-menu" aria-label={t("settings.title")}>
                     <button type="button" onClick={() => void open("signaling")}>
-                      <span>Signaling</span>
+                      <span>{t("settings.signaling.title")}</span>
                       <span class="menu-value">{protocol().toUpperCase()}</span>
                       <LucideChevronRight />
                     </button>
                     <button type="button" onClick={() => void open("transport")}>
-                      <span>Transport</span>
-                      <span class="menu-value">WebRTC</span>
+                      <span>{t("settings.transport.title")}</span>
+                      <span class="menu-value">{t("settings.transport.webrtc")}</span>
                       <LucideChevronRight />
                     </button>
                   </nav>
@@ -265,7 +266,7 @@ export const App = (): JSX.Element => {
                 <Show when={screen === "signaling"}>
                   <div class="signaling-settings">
                     <div class="settings-row">
-                      <span id="protocol-label">Protocol</span>
+                      <span id="protocol-label">{t("common.protocol")}</span>
                       <div class="protocol-options" role="group" aria-labelledby="protocol-label">
                         <For each={RELAY_PROTOCOLS}>
                           {option => <button type="button" aria-pressed={protocol() === option} onClick={() => saveProtocol(option)}>{option.toUpperCase()}</button>}
@@ -273,12 +274,12 @@ export const App = (): JSX.Element => {
                       </div>
                     </div>
                     <div class="settings-row">
-                      <label for="server">Server</label>
+                      <label for="server">{t("settings.signaling.server")}</label>
                       <input
                         id="server"
-                        aria-label="Server URL"
+                        aria-label={t("settings.signaling.serverUrl")}
                         value={server()}
-                        placeholder="Server URL"
+                        placeholder={t("settings.signaling.serverUrl")}
                         onInput={event => saveServer(event.currentTarget.value)}
                         spellcheck={false}
                         autocomplete="off"
@@ -288,8 +289,8 @@ export const App = (): JSX.Element => {
                 </Show>
 
                 <Show when={screen === "transport"}>
-                  <Suspense fallback={<p class="empty">Loading settings...</p>}>
-                    <Show when={transport()} fallback={<p class="empty">Loading settings...</p>}>
+                  <Suspense fallback={<p class="empty">{t("popup.loadingSettings")}</p>}>
+                    <Show when={transport()} fallback={<p class="empty">{t("popup.loadingSettings")}</p>}>
                       {config => (
                         <TransportSettings
                           value={config()}
@@ -324,7 +325,7 @@ export const App = (): JSX.Element => {
           </Show>
         </div>
         <Show when={failure()}>{message => <p class="bad" role="alert">{message()}</p>}</Show>
-        <Show when={connections.error}><p class="bad" role="alert">Could not load connections.</p></Show>
+        <Show when={connections.error}><p class="bad" role="alert">{t("popup.couldNotLoadConnections")}</p></Show>
       </main>
     </div>
   );

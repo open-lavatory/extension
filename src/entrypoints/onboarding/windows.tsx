@@ -3,6 +3,7 @@ import Ellipsis from "lucide-solid/icons/ellipsis";
 import Unplug from "lucide-solid/icons/unplug";
 import { For, type JSX, Show } from "solid-js";
 
+import { t } from "../../i18n/catalogue.js";
 import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
 import { Header } from "../../ui/Header.js";
 import { ACCOUNT_APPROVE, ORIGIN, type Peer, PEER_NAME, PeerIcon, QR_SVG } from "./parts.js";
@@ -29,7 +30,7 @@ export const ListView = (properties: {
         fallback={(
           <div class="empty-state">
             <Unplug />
-            <p>No connections yet.</p>
+            <p>{t("popup.noConnections")}</p>
           </div>
         )}
       >
@@ -50,8 +51,8 @@ export const ListView = (properties: {
                 <details class="row-menu" open={rowIndex() === 0 && properties.isMenuOpen}>
                   <summary ref={rowIndex() === 0 ? properties.moreRef : undefined}><Ellipsis /></summary>
                   <div class="menu-items">
-                    <button type="button">Revoke</button>
-                    <button type="button">Forget</button>
+                    <button type="button">{t("actions.revoke")}</button>
+                    <button type="button">{t("actions.forget")}</button>
                   </div>
                 </details>
               </div>
@@ -59,50 +60,46 @@ export const ListView = (properties: {
           </For>
         </div>
       </Show>
-      <button type="button" class="primary full" ref={properties.connectRef}>Connect</button>
+      <button type="button" class="primary full" ref={properties.connectRef}>{t("actions.connect")}</button>
     </main>
   </>
 );
 
 export const QrView = (properties: { isCopied: boolean; copyRef?: (element: HTMLElement) => void; }): JSX.Element => (
   <>
-    <Header title="Connect" onBack={idle} />
+    <Header title={t("pairing.title")} onBack={idle} />
     <main class="body">
       <div class="qr-frame">
         <button type="button" innerHTML={QR_SVG} />
       </div>
-      <button type="button" class="secondary full" ref={properties.copyRef}>{properties.isCopied ? "Copied" : "Copy Connection URL"}</button>
-      <p class="scan-copy">
-        Scan the code above using your mobile wallet.
-        <br />
-        Or copy the link and paste it into your wallet.
-      </p>
+      <button type="button" class="secondary full" ref={properties.copyRef}>{t(properties.isCopied ? "pairing.copied" : "handshake.copyConnectionUrl")}</button>
+      <p class="scan-copy">{t("handshake.scanCodeInstruction")}</p>
     </main>
   </>
 );
 
 export const LoadingView = (): JSX.Element => (
   <>
-    <Header title="Connect" onBack={idle} />
+    <Header title={t("pairing.title")} onBack={idle} />
     <main class="body centered">
-      <ConnectionLoading detail="This may take a few seconds..." />
+      <ConnectionLoading detail={t("connectionFlow.mayTakeFewSeconds")} />
     </main>
   </>
 );
 
 export const PairedView = (properties: { peer: Peer; doneRef?: (element: HTMLElement) => void; }): JSX.Element => (
   <>
-    <Header title="Connect" onBack={idle} />
+    <Header title={t("pairing.title")} onBack={idle} />
     <main class="body centered">
       <div class="state">
         <span class="peer-badge">
           <PeerIcon peer={properties.peer} size={48} />
           <Check />
         </span>
-        <strong>Connected Successfully!</strong>
+        <strong>{t("connectionFlow.connectedSuccessfully")}</strong>
         <p>{PEER_NAME[properties.peer]}</p>
       </div>
-      <button type="button" class="primary full" ref={properties.doneRef}>Done</button>
+      <button type="button" class="primary full" ref={properties.doneRef}>{t("actions.done")}</button>
     </main>
   </>
 );
@@ -116,14 +113,14 @@ export const ApprovalWindow = (properties: {
   connectRef?: (element: HTMLElement) => void;
 }): JSX.Element => (
   <div class="extension-window approval-window shell" classList={{ hidden: !properties.isShown }} style={properties.style}>
-    <Header title="Connect" />
+    <Header title={t("pairing.title")} />
     <main class="body approval-body">
       <p class="origin">
         <PeerIcon peer="site" size={24} />
         {ORIGIN}
       </p>
       <fieldset class="connection-picker">
-        <legend>Connection</legend>
+        <legend>{t("settings.connection.title")}</legend>
         <For each={properties.rows}>
           {peer => (
             <label class="connection-choice" ref={peer === properties.rows[0] ? properties.pickRef : undefined}>
@@ -134,17 +131,17 @@ export const ApprovalWindow = (properties: {
           )}
         </For>
       </fieldset>
-      <button type="button" class="secondary pair-button">Pair</button>
+      <button type="button" class="secondary pair-button">{t("actions.pair")}</button>
       <fieldset class="accounts" classList={{ hidden: !properties.picked }}>
-        <legend>Accounts this site may see</legend>
+        <legend>{t("approval.accountsSiteMaySee")}</legend>
         <label>
           <input type="checkbox" checked />
           <span>{ACCOUNT_APPROVE}</span>
         </label>
       </fieldset>
       <div class="approval-actions">
-        <button type="button" class="secondary">Reject</button>
-        <button type="button" class="primary" disabled={!properties.picked} ref={properties.connectRef}>Connect</button>
+        <button type="button" class="secondary">{t("actions.reject")}</button>
+        <button type="button" class="primary" disabled={!properties.picked} ref={properties.connectRef}>{t("actions.connect")}</button>
       </div>
     </main>
   </div>

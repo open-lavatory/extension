@@ -2,6 +2,7 @@ import { browser } from "wxt/browser";
 
 import { engineClose, enginePair, engineVerify } from "../engine/client.js";
 import type { EngineEvent } from "../engine/port.js";
+import { t } from "../i18n/catalogue.js";
 import { type ConnectionView, pairingStore, type PairingSurface, type PairingView } from "../ui/port.js";
 import { getConnection, putConnection, removeConnection } from "./registry.js";
 import { getSignalingSettings, type Relay, signalingStore } from "./relay.js";
@@ -113,7 +114,7 @@ export const startPairing = async (connectionId: string, relay: Relay, surface: 
       if (!paired.ok) throw new Error(paired.error);
     }
     catch (error) {
-      await fail(connectionId, error instanceof Error ? error.message : "Could not start the connection");
+      await fail(connectionId, error instanceof Error ? error.message : t("errors.couldNotStartConnection"));
     }
   })();
 };
@@ -134,7 +135,7 @@ export const didHandlePairingEvent = async (message: EngineEvent): Promise<boole
     await advance(message.connectionId, connection => ({ ...connection, wallet: message.wallet }));
   }
   else if (message.state === "disconnected") {
-    await fail(message.connectionId, message.error ?? "Connection closed");
+    await fail(message.connectionId, message.error ?? t("connectionFlow.connectionClosed"));
   }
   else if (message.state === "connected") {
     await advance(message.connectionId, connection => ({ ...connection, state: "linking" }));

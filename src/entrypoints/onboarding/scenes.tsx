@@ -6,6 +6,7 @@ import Puzzle from "lucide-solid/icons/puzzle";
 import Smartphone from "lucide-solid/icons/smartphone";
 import { For, type JSX, Show } from "solid-js";
 
+import { t } from "../../i18n/catalogue.js";
 import { ACCOUNT, BrowserBar, DesktopWallet, HardwareKey, Layer, Mark, ORIGIN, type Peer, PeerIcon, Phone, Scene, SITE_TABS, Skeleton, WebWallet } from "./parts.js";
 import { createTimeline, type Timeline } from "./timeline.js";
 import { ApprovalWindow, ListView, LoadingView, PairedView, PopupWindow, QrView } from "./windows.js";
@@ -13,9 +14,9 @@ import { ApprovalWindow, ListView, LoadingView, PairedView, PopupWindow, QrView 
 const PEERS: Peer[] = ["phone", "desktop", "web"];
 
 const KIND: Record<Peer, { label: string; icon: () => JSX.Element; }> = {
-  phone: { label: "Phone", icon: () => <Smartphone size={18} /> },
-  desktop: { label: "Desktop", icon: () => <Monitor size={18} /> },
-  web: { label: "Browser", icon: () => <Globe size={18} /> },
+  phone: { label: t("onboarding.peer.phone"), icon: () => <Smartphone size={18} /> },
+  desktop: { label: t("onboarding.peer.desktop"), icon: () => <Monitor size={18} /> },
+  web: { label: t("onboarding.peer.web"), icon: () => <Globe size={18} /> },
 };
 
 type Run<StepId extends string> = { peer: Peer; from: StepId; to: StepId; still: StepId; };
@@ -38,7 +39,7 @@ const SiteNav = (properties: { account?: Peer; connectRef?: (element: HTMLElemen
     <PeerIcon peer="site" size={28} />
     <strong>Swap</strong>
     <span class="site-spacer" />
-    <Show when={properties.account} fallback={<span class="site-button" ref={properties.connectRef}>Connect</span>}>
+    <Show when={properties.account} fallback={<span class="site-button" ref={properties.connectRef}>{t("actions.connect")}</span>}>
       {peer => (
         <span class="site-account">
           <PeerIcon peer={peer()} size={18} />
@@ -58,7 +59,7 @@ export const PinScene = (): JSX.Element => {
   ], "menu", { x: 600, y: 200 });
 
   return (
-    <Scene timeline={timeline} height={300} label="The extensions menu next to the address bar, with the pin next to openlv-connect.">
+    <Scene timeline={timeline} height={300} label={t("onboarding.pin.scene")}>
       <div class="browser-window" style={{ left: "0px", top: "0px", width: "760px", height: "280px" }}>
         <BrowserBar tabs={SITE_TABS} address={ORIGIN}>
           <span class="browser-action pinned" classList={{ hidden: !timeline.within("pinned", "hold") }}><Mark size={20} /></span>
@@ -73,13 +74,13 @@ export const PinScene = (): JSX.Element => {
         </div>
       </div>
       <div class="extensions-menu" classList={{ hidden: !timeline.is("menu") }} style={{ right: "12px", top: "88px" }}>
-        <p class="extensions-title">Extensions</p>
+        <p class="extensions-title">{t("onboarding.browser.extensions")}</p>
         <div class="extensions-row">
           <Mark size={18} />
           <span>openlv-connect</span>
           <span class="extensions-pin" ref={timeline.target("pin")}><Pin size={16} /></span>
         </div>
-        <p class="extensions-manage">Manage extensions</p>
+        <p class="extensions-manage">{t("onboarding.browser.manageExtensions")}</p>
       </div>
     </Scene>
   );
@@ -122,7 +123,7 @@ export const PairScene = (): JSX.Element => {
     <Scene
       timeline={timeline}
       height={470}
-      label="openlv-connect shows a QR code and a link. A phone wallet scans the code, a desktop wallet and a wallet in another browser take the link."
+      label={t("onboarding.pair.scene")}
       controls={<WalletSwitch timeline={timeline} runs={PAIR_RUNS} />}
     >
       <PopupWindow style={{ left: "0px", top: "0px" }}>
@@ -188,7 +189,7 @@ export const SiteScene = (): JSX.Element => {
   ], "pick", { x: 430, y: 250 });
 
   return (
-    <Scene timeline={timeline} height={640} label="A site asks to connect. The openlv-connect window lists your wallets and the accounts the site may see.">
+    <Scene timeline={timeline} height={640} label={t("onboarding.site.scene")}>
       <div class="browser-window" style={{ left: "0px", top: "0px", width: "560px", height: "380px" }}>
         <BrowserBar tabs={SITE_TABS} address={ORIGIN}>
           <span class="browser-action"><Mark size={20} /></span>
@@ -244,7 +245,7 @@ export const SignScene = (): JSX.Element => {
     <Scene
       timeline={timeline}
       height={456}
-      label="The site asks for a signature. You approve it in your wallet on a phone, on a desktop with a hardware key, or in another browser."
+      label={t("onboarding.sign.scene")}
       controls={<WalletSwitch timeline={timeline} runs={SIGN_RUNS} />}
     >
       <div class="browser-window" style={{ left: "0px", top: "78px", width: "380px", height: "300px" }}>
@@ -257,7 +258,7 @@ export const SignScene = (): JSX.Element => {
               when={isSigned()}
               fallback={(
                 <span class="site-button" ref={timeline.target("site-sign")}>
-                  <Show when={isWaiting()} fallback="Sign message"><span class="spinner small" /></Show>
+                  <Show when={isWaiting()} fallback={t("onboarding.site.signMessage")}><span class="spinner small" /></Show>
                 </span>
               )}
             >
@@ -305,7 +306,7 @@ export const ListScene = (): JSX.Element => {
   ], "menu", { x: 560, y: 240 });
 
   return (
-    <Scene timeline={timeline} height={500} label="The openlv-connect popup lists your wallets and the sites that use them.">
+    <Scene timeline={timeline} height={500} label={t("onboarding.list.scene")}>
       <div class="browser-window" style={{ left: "0px", top: "0px", width: "760px", height: "500px" }}>
         <BrowserBar tabs={SITE_TABS} address={ORIGIN}>
           <span class="browser-action" classList={{ open: !timeline.is("closed") }} ref={timeline.target("toolbar")}><Mark size={20} /></span>

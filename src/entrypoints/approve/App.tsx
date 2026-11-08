@@ -1,6 +1,7 @@
 import { createEffect, createResource, createSignal, For, type JSX, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 
 import { getSavedRelay } from "../../connections/relay.js";
+import { t } from "../../i18n/catalogue.js";
 import { call } from "../../ui/client.js";
 import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
 import { Header } from "../../ui/Header.js";
@@ -15,6 +16,8 @@ const PairingScreen = lazy(async () => {
 });
 
 const requestId = new URLSearchParams(globalThis.location.search).get("request");
+
+const transferWarning = t("approval.transferWarning").split("{origin}");
 
 const shorten = (account: string): string =>
   `${account.slice(0, 10)}...${account.slice(-6)}`;
@@ -44,7 +47,7 @@ export const App = (): JSX.Element => {
       void call({ kind: "approve:load", requestId }).then((reply) => {
         if (reply.for === "approve:load" && !reply.result.ok) setFailure(reply.result.error);
       })
-        .catch(() => setFailure("Could not refresh the request"));
+        .catch(() => setFailure(t("approval.couldNotRefresh")));
     }, 20_000);
 
     onCleanup(() => clearInterval(timer));
@@ -80,7 +83,7 @@ export const App = (): JSX.Element => {
     }
     catch (error) {
       if (chosen()?.connectionId === entry.connectionId) {
-        setFailure(error instanceof Error ? error.message : "Could not load accounts");
+        setFailure(error instanceof Error ? error.message : t("approval.couldNotLoadAccounts"));
       }
     }
     finally {
@@ -104,14 +107,14 @@ export const App = (): JSX.Element => {
 
       const updated = request?.connections.find(entry => entry.connectionId === targetId);
 
-      if (!updated) throw new Error("Could not load the new connection");
+      if (!updated) throw new Error(t("approval.couldNotLoadNewConnection"));
 
       setPairing(false);
       pairing.end();
       await choose(updated);
     }
     catch (error) {
-      setFailure(error instanceof Error ? error.message : "Could not load the new connection");
+      setFailure(error instanceof Error ? error.message : t("approval.couldNotLoadNewConnection"));
       setPairing(false);
     }
     finally {
@@ -143,7 +146,7 @@ export const App = (): JSX.Element => {
       await started;
     }
     catch (error) {
-      setFailure(error instanceof Error ? error.message : "Could not start the connection");
+      setFailure(error instanceof Error ? error.message : t("errors.couldNotStartConnection"));
     }
   };
 
@@ -154,7 +157,7 @@ export const App = (): JSX.Element => {
       setPairing(false);
     }
     catch (error) {
-      setFailure(error instanceof Error ? error.message : "Could not stop the connection");
+      setFailure(error instanceof Error ? error.message : t("approval.couldNotStopConnection"));
       setPairing(false);
     }
   };
@@ -193,7 +196,7 @@ export const App = (): JSX.Element => {
       globalThis.close();
     }
     catch (error) {
-      setFailure(error instanceof Error ? error.message : "Could not submit the request");
+      setFailure(error instanceof Error ? error.message : t("approval.couldNotSubmit"));
     }
     finally {
       setDeciding(false);
@@ -202,7 +205,7 @@ export const App = (): JSX.Element => {
 
   return (
     <div class="shell approval-shell">
-      <Header title="Connect" onBack={isPairing() ? () => void backFromPair() : undefined} />
+      <Header title={t("pairing.title")} onBack={isPairing() ? () => void backFromPair() : undefined} />
       <main class="body approval-body">
         <Show when={isPairing()}>
           <Suspense fallback={<ConnectionLoading />}>
@@ -211,8 +214,8 @@ export const App = (): JSX.Element => {
           <Show when={failure()}>{message => <p class="bad" role="alert">{message()}</p>}</Show>
         </Show>
         <Show when={!isPairing()}>
-          <Show when={!loaded.loading} fallback={<p class="empty">Loading request...</p>}>
-            <Show when={loaded()} fallback={<p class="empty">This request is no longer waiting.</p>}>
+          <Show when={!loaded.loading} fallback={<p class="empty">{t("approval.loadingRequest")}</p>}>
+            <Show when={loaded()} fallback={<p class="empty">{t("approval.noLongerWaiting")}</p>}>
               {request => (
                 <>
                   <p class="origin">
@@ -220,8 +223,8 @@ export const App = (): JSX.Element => {
                     {request().origin}
                   </p>
                   <fieldset class="connection-picker">
-                    <legend>Connection</legend>
-                    <Show when={request().connections.length > 0} fallback={<p class="empty">Connect a wallet first.</p>}>
+                    <legend>{t("settings.connection.title")}</legend>
+                    <Show when={request().connections.length > 0} fallback={<p class="empty">{t("approval.connectWalletFirst")}</p>}>
                       <For each={request().connections}>
                         {entry => (
                           <label class="connection-choice">
@@ -235,7 +238,7 @@ export const App = (): JSX.Element => {
                             />
                             <WalletIcon wallet={entry.wallet} isConnected={entry.state === "connected"} />
                             <span class="connection-copy">
-                              <strong>{entry.wallet?.name ?? "Unnamed wallet"}</strong>
+                              <strong>{entry.wallet?.name ?? t("wallet.unnamed")}</strong>
                               <Show when={entry.binding}>
                                 {binding => (
                                   <span>
@@ -250,23 +253,22 @@ export const App = (): JSX.Element => {
                       </For>
                     </Show>
                   </fieldset>
-                  <button type="button" class="secondary pair-button" disabled={isDeciding()} onClick={() => void startPair()}>Pair</button>
+                  <button type="button" class="secondary pair-button" disabled={isDeciding()} onClick={() => void startPair()}>{t("actions.pair")}</button>
                   <Show when={chosen()?.binding}>
                     {binding => (
                       <Show when={binding().origin !== request().origin}>
                         <p class="transfer-warning">
-                          Connecting here takes it away from
-                          {" "}
+                          {transferWarning[0]}
                           <strong>{binding().origin}</strong>
-                          .
+                          {transferWarning[1]}
                         </p>
                       </Show>
                     )}
                   </Show>
-                  <Show when={isLoadingAccounts()}><p class="muted" role="status">Loading accounts...</p></Show>
+                  <Show when={isLoadingAccounts()}><p class="muted" role="status">{t("approval.loadingAccounts")}</p></Show>
                   <Show when={accounts().length > 0}>
                     <fieldset class="accounts">
-                      <legend>Accounts this site may see</legend>
+                      <legend>{t("approval.accountsSiteMaySee")}</legend>
                       <For each={accounts()}>
                         {account => (
                           <label>
@@ -279,8 +281,8 @@ export const App = (): JSX.Element => {
                   </Show>
                   <Show when={failure()}>{message => <p class="bad" role="alert">{message()}</p>}</Show>
                   <div class="approval-actions">
-                    <button type="button" class="secondary" disabled={isDeciding()} onClick={() => void decide(false)}>Reject</button>
-                    <button type="button" class="primary" disabled={!chosen() || selected().length === 0 || isLoadingAccounts() || isDeciding()} onClick={() => void decide(true)}>Connect</button>
+                    <button type="button" class="secondary" disabled={isDeciding()} onClick={() => void decide(false)}>{t("actions.reject")}</button>
+                    <button type="button" class="primary" disabled={!chosen() || selected().length === 0 || isLoadingAccounts() || isDeciding()} onClick={() => void decide(true)}>{t("actions.connect")}</button>
                   </div>
                 </>
               )}
