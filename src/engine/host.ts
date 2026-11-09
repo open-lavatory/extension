@@ -29,6 +29,7 @@ type Live = {
 
 const live = new Map<string, Live>();
 const preparing = new Map<string, object>();
+const ADDRESS = /^0x[\da-f]{40}$/iu;
 
 const emit = (event: EngineEvent): void => {
   void (async () => {
@@ -84,7 +85,32 @@ const unwrap = (payload: unknown, requestIdentifier: string): EngineResult<unkno
   return { ok: false, error: "Invalid JSON-RPC response from wallet", code: -32_603 };
 };
 
-const onPeerRequest = async (message: unknown): Promise<object> => {
+const onPeerRequest = async (connectionId: string, message: unknown): Promise<object | null> => {
+  if (
+    typeof message === "object"
+    && message !== null
+    && "jsonrpc" in message
+    && message.jsonrpc === "2.0"
+    && !("id" in message)
+    && "method" in message
+    && "params" in message
+    && Array.isArray(message.params)
+  ) {
+    const [value]: unknown[] = message.params;
+
+    if (message.method === "accountsChanged" && Array.isArray(value) && value.every((account): account is string => typeof account === "string" && ADDRESS.test(account))) {
+      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, event: "accountsChanged", data: value } satisfies EngineEvent);
+
+      return null;
+    }
+
+    if (typeof value === "string" && message.method === "chainChanged" && /^0x[\da-f]+$/iu.test(value)) {
+      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, event: "chainChanged", data: value } satisfies EngineEvent);
+
+      return null;
+    }
+  }
+
   const requestIdentifier = typeof message === "object"
     && message !== null
     && "id" in message
@@ -142,7 +168,7 @@ export const pair = async (
     const session = await createSession(
       { p: relay.p, s: relay.s },
       [webrtc(transport)],
-      onPeerRequest,
+      async message => await onPeerRequest(connectionId, message),
       { info: PEER_INFO },
     );
 
@@ -229,7 +255,7 @@ export const verify = async (
   }
 
   const values: unknown[] = result.value;
-  const accounts = values.filter((account): account is string => typeof account === "string" && /^0x[\da-f]{40}$/iu.test(account));
+  const accounts = values.filter((account): account is string => typeof account === "string" && ADDRESS.test(account));
 
   if (accounts.length !== values.length) return { ok: false, error: "The wallet returned invalid accounts", code: -32_603 };
 

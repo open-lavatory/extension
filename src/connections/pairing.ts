@@ -129,7 +129,7 @@ export const didHandlePairingEvent = async (message: EngineEvent): Promise<boole
   await load();
   const view = held.view;
 
-  if (view?.connection.connectionId !== message.connectionId || view.connection.state === "connected" || view.error) return false;
+  if (message.kind === "engine:notification" || view?.connection.connectionId !== message.connectionId || view.connection.state === "connected" || view.error) return false;
 
   if (message.kind === "engine:wallet") {
     await advance(message.connectionId, connection => ({ ...connection, wallet: message.wallet }));

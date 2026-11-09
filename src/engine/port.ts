@@ -48,10 +48,13 @@ export type EngineEvent
     error?: string;
     url?: string;
   }
-  | { kind: "engine:wallet"; connectionId: string; wallet: Wallet; };
+  | { kind: "engine:wallet"; connectionId: string; wallet: Wallet; }
+  | { kind: "engine:notification"; connectionId: string; event: "accountsChanged"; data: string[]; }
+  | { kind: "engine:notification"; connectionId: string; event: "chainChanged"; data: string; };
 
 export const isEngineEvent = (message: unknown): message is EngineEvent =>
   typeof message === "object"
   && message !== null
   && "kind" in message
-  && (message.kind === "engine:state" || message.kind === "engine:wallet");
+  && typeof message.kind === "string"
+  && ["engine:state", "engine:wallet", "engine:notification"].includes(message.kind);

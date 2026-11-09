@@ -445,7 +445,32 @@ export default defineBackground(() => {
     });
   });
 
+  let notifying: Promise<void> = Promise.resolve();
+
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (isEngineEvent(message) && message.kind === "engine:notification") {
+      const previous = notifying;
+
+      notifying = (async () => {
+        await Promise.allSettled([previous]);
+        const connection = await getConnection(message.connectionId);
+
+        if (message.event === "chainChanged") await patchConnection(message.connectionId, { chainId: message.data });
+        else if (connection?.binding) await patchConnection(message.connectionId, { binding: { ...connection.binding, accounts: message.data } });
+
+        if (connection?.binding) {
+          const notification = { origin: connection.binding.origin, event: { channel: PAGE_CHANNEL, kind: "event", event: message.event, data: message.data } satisfies PageEvent };
+          const tabs = await browser.tabs.query({});
+
+          await Promise.allSettled(tabs.flatMap(tab => (tab["id"] === undefined ? [] : [browser.tabs.sendMessage(tab["id"], notification)])));
+        }
+
+        sendResponse(null);
+      })();
+
+      return true;
+    }
+
     if (isEngineEvent(message)) {
       void (async () => {
         if (await didHandlePairingEvent(message)) return;

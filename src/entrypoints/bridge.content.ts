@@ -37,6 +37,12 @@ export default defineContentScript({
       (port ?? connect()).postMessage(message);
     });
 
+    browser.runtime.onMessage.addListener((message: unknown) => {
+      if (typeof message !== "object" || message === null || !("origin" in message) || message.origin !== globalThis.location.origin || !("event" in message) || !isPageMessage(message.event)) return;
+
+      globalThis.postMessage(message.event, globalThis.location.origin);
+    });
+
     connect();
   },
 });
