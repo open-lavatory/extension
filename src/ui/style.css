@@ -96,7 +96,8 @@ svg { flex-shrink: 0; }
 .wallet-state.disconnected { color: var(--lv-text-muted); }
 .wallet-state.disconnected svg { stroke-dasharray: 2 2; }
 .wallet-state.disconnected img { opacity: .5; }
-.site-icon { width: 16px; height: 16px; margin-right: 6px; border-radius: 4px; vertical-align: -3px; object-fit: contain; }
+.site-icon { width: 16px; height: 16px; margin-inline-end: 6px; border-radius: 4px; vertical-align: -3px; object-fit: contain; }
+.directional:dir(rtl) { transform: scaleX(-1); }
 .connected-wallet { display: flex; align-items: center; gap: 8px; }
 .connection-copy { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .connection-copy > span { color: var(--lv-text-secondary); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }

@@ -253,12 +253,12 @@ export const App = (): JSX.Element => {
                     <button type="button" onClick={() => void open("signaling")}>
                       <span>{t("settings.signaling.title")}</span>
                       <span class="menu-value">{protocol().toUpperCase()}</span>
-                      <LucideChevronRight />
+                      <LucideChevronRight class="directional" />
                     </button>
                     <button type="button" onClick={() => void open("transport")}>
                       <span>{t("settings.transport.title")}</span>
                       <span class="menu-value">{t("settings.transport.webrtc")}</span>
-                      <LucideChevronRight />
+                      <LucideChevronRight class="directional" />
                     </button>
                   </nav>
                 </Show>
@@ -278,6 +278,7 @@ export const App = (): JSX.Element => {
                       <input
                         id="server"
                         aria-label={t("settings.signaling.serverUrl")}
+                        dir="ltr"
                         value={server()}
                         placeholder={t("settings.signaling.serverUrl")}
                         onInput={event => saveServer(event.currentTarget.value)}

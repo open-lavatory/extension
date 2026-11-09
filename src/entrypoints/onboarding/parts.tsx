@@ -91,7 +91,7 @@ export const Scene = (properties: {
   return (
     <figure class="visual">
       <div class="scene-frame" role="img" aria-label={properties.label} ref={element => observer.observe(element)} style={{ height: `${properties.height * scale()}px` }}>
-        <div class="scene" classList={{ paused: properties.timeline.isPaused() }} inert aria-hidden="true" ref={properties.timeline.setRoot} style={{ "width": `${SCENE_WIDTH}px`, "height": `${properties.height}px`, "--scale": scale() }}>
+        <div class="scene" classList={{ paused: properties.timeline.isPaused() }} dir="ltr" inert aria-hidden="true" ref={properties.timeline.setRoot} style={{ "width": `${SCENE_WIDTH}px`, "height": `${properties.height}px`, "--scale": scale() }}>
           {properties.children}
           <span class="pointer" classList={{ on: properties.timeline.pointer().isVisible, clicking: properties.timeline.pointer().isClicking }} style={{ left: `${properties.timeline.pointer().x - 4}px`, top: `${properties.timeline.pointer().y - 4}px` }}>
             <MousePointer2 size={24} />

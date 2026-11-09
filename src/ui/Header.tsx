@@ -17,7 +17,7 @@ export const Header = (properties: {
     >
       {back => (
         <button type="button" class="icon-button" aria-label={t("actions.back")} onClick={() => back()()}>
-          <LucideChevronLeft />
+          <LucideChevronLeft class="directional" />
         </button>
       )}
     </Show>

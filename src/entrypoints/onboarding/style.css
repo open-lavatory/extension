@@ -15,7 +15,7 @@ html body { background: var(--page-background); }
 .step { display: grid; gap: 28px; }
 .step-copy { max-width: 600px; }
 .step-copy h2 { margin: 0 0 8px; font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.01em; }
-.step-optional { margin-left: 10px; color: var(--lv-text-muted); font-size: 15px; font-weight: 400; letter-spacing: 0; }
+.step-optional { margin-inline-start: 10px; color: var(--lv-text-muted); font-size: 15px; font-weight: 400; letter-spacing: 0; }
 
 .visual { margin: 0; min-width: 0; }
 .scene-frame { position: relative; width: 100%; }

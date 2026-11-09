@@ -1,10 +1,11 @@
 import "../../ui/style.css";
 
-import { language, t } from "../../i18n/catalogue.js";
+import { direction, language, t } from "../../i18n/catalogue.js";
 
 const status = document.querySelector("[data-popup-status]");
 
 document.documentElement.lang = language;
+document.documentElement.dir = direction;
 
 if (status) status.textContent = t("popup.loadingConnections");
 

@@ -22,6 +22,8 @@ const detectLanguage = (): string => {
 
 export const language = detectLanguage();
 
+export const direction = new Set(["ar", "fa", "he"]).has(language.split("-", 1)[0] ?? "") ? "rtl" : "ltr";
+
 const messages = CATALOGUES.get(language) ?? en;
 
 export const t = (key: MessageKey, parameters?: Readonly<Record<string, string | number>>): string =>

@@ -59,6 +59,7 @@ export const TransportSettings = (properties: {
               <div class="server-row">
                 <input
                   aria-label={t("transport.stunServer", { number: index + 1 })}
+                  dir="ltr"
                   value={server()}
                   onInput={event => updateStun(index, event.currentTarget.value)}
                   placeholder="stun:stun.l.google.com:19302"
@@ -93,6 +94,7 @@ export const TransportSettings = (properties: {
                 <div class="server-row">
                   <input
                     aria-label={t("transport.turnServer", { number: index + 1 })}
+                    dir="ltr"
                     value={server().urls}
                     onInput={event => updateTurn(index, "urls", event.currentTarget.value)}
                     placeholder="turn:relay.example.com:443"
