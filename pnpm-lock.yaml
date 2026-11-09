@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@openlv/core':
-        specifier: 0.3.0
-        version: 0.3.0
-      '@openlv/session':
         specifier: 0.3.1
         version: 0.3.1
+      '@openlv/session':
+        specifier: 0.3.3
+        version: 0.3.3
       '@openlv/transport':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       lucide-solid:
         specifier: ^0.574.0
         version: 0.574.0(solid-js@1.9.15)
@@ -316,35 +316,20 @@ packages:
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
 
-  '@openlv/core@0.3.0':
-    resolution: {integrity: sha512-NAGihiOzdqqB5vp7LkLho2GGBKrcRTdc8qK+EQetu54HHG1oyzHFMUuq1sXWqBWL0GyD1C+igMFdM0R1VzLPGA==}
+  '@openlv/core@0.3.1':
+    resolution: {integrity: sha512-ireXDWZc24/hFWQDP4Ei8gORhy4mmqxWn7So4tlu4xo0i9NEcU4lgCYXJc5L/E4sAmPn+044hIs9fG1cHDy7Bw==}
 
-  '@openlv/session@0.3.1':
-    resolution: {integrity: sha512-EbokMXfFPXN6WLecpuKouaWii8QUxQApJusiHzwlXdfJXNDrkXT64PfoM5Fjwbm0YSSkKI/53srOWoi+aS1JXA==}
+  '@openlv/session@0.3.3':
+    resolution: {integrity: sha512-3FVvzsHFq7Dvd1WVTtFqf8zkqo6GjbtpQe4ec3rBbhV6LzDBCF19SvGK+bPz+BHJYQ9AMLRmRrnI19mrHAU9/w==}
 
-  '@openlv/signaling@0.3.1':
-    resolution: {integrity: sha512-KGtgZbEbsfA1EG5XKiP1BRVrhp2TILXlJef/CrUjytykGZwq/XzG9qtXxTFSFEmW3atpYC2Us5gU064SZamNVg==}
+  '@openlv/signaling@0.4.0':
+    resolution: {integrity: sha512-wR3EpSUL21fiG0NN2BfiVc4QZXwHu/1T1SR0cIRQNo8NifsrOhCS9/2ugzHpWYyVlxeH/FpT94C2VM1EMFYpnQ==}
 
-  '@openlv/transport@0.3.0':
-    resolution: {integrity: sha512-zQIJFwzxWYhtUPsBHm50PR2pIDOydnX4FrkI/+vr/gT+W7vZxD25PIICZPqzYGnqBIfQcX07T94MlGul3T4rAg==}
+  '@openlv/transport@0.3.1':
+    resolution: {integrity: sha512-320/uwO41rEXRJFXVmdYrmlp1AUASTnAPLbCh0RkF5CLp/omwfa4egLixTV1ocYRDR4Kof2w2ukmYUDDTWjbEg==}
 
   '@oxc-project/types@0.147.0':
     resolution: {integrity: sha512-IJ3s6ltHLp45S0bh7phkX+gJO7A1Wuz2EaqpAhb8WjqDwbzMiWKHhyyT42tskaWjEYXtHtVCPpnBJVT9+dcRLg==}
-
-  '@peculiar/asn1-schema@2.9.4':
-    resolution: {integrity: sha512-GjzePcT9Iw8NzeOPf73iNS9xM+TBhd/FilAfP+RQGkTMQJTVWtytN3JHJACCjf/ABNau5S7mS3g+DcuxmRgYEg==}
-    engines: {node: '>=14'}
-
-  '@peculiar/json-schema@1.1.12':
-    resolution: {integrity: sha512-coUfuoMeIB7B8/NMekxaDzLhaYmp0HZNPEjYRm9goRou8UZIC3z21s0sL9AWoCw4EG876QyO3kYrc61WNF9B/w==}
-    engines: {node: '>=8.0.0'}
-
-  '@peculiar/utils@2.0.3':
-    resolution: {integrity: sha512-+oL3HPFRIZ1St2K50lWCXiioIgSoxzz7R1J3uF6neO2yl1sgmpgY6XXJH4BdpoDkMWznQTeYF6oWNDZLCdQ4eQ==}
-
-  '@peculiar/webcrypto@1.7.1':
-    resolution: {integrity: sha512-ODOov0sGMJMf3jPonOkgGqPknTsu+DdQ7kD++gz8aI+aFMOMHFbWAA2taqXXVTdP+OTOQR/znGvSpmkeI0WTYQ==}
-    engines: {node: '>=14.18.0'}
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -784,10 +769,6 @@ packages:
   array-union@3.0.1:
     resolution: {integrity: sha512-1OvF9IbWwaeiM9VhzYXVQacMibxpXOMYVNIvMtKRyX9SImBXpKcFr8XvFDeEslCyuH/t6KRt7HEO94AlP8Iatw==}
     engines: {node: '>=12'}
-
-  asn1js@3.0.10:
-    resolution: {integrity: sha512-S2s3aOytiKdFRdulw2qPE51MzjzVOisppcVv7jVFR+Kw0kxwvFrDcYA0h7Ndqbmj0HkMIXYWaoj7fli8kgx1eg==}
-    engines: {node: '>=12.0.0'}
 
   async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
@@ -1480,10 +1461,6 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  gun@0.2020.1241:
-    resolution: {integrity: sha512-rmGqLuJj4fAuZ/0lddCvXHbENPkEnBOBYpq+kXHrwQ5RdNtQ5p0Io99lD1qUXMFmtwNacQ/iqo3VTmjmMyAYZg==}
-    engines: {node: '>=0.8.4'}
-
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
@@ -2103,13 +2080,6 @@ packages:
     resolution: {integrity: sha512-LjgDO2zPtoXP2wJpDjZrGdojii1uqO0cnwKoIoUzkfS98HDmbeiGmYiXo3lXeFlq2xvne1QFQhwYXSUCLKtEuA==}
     engines: {node: '>=12.20'}
 
-  pvtsutils@1.3.6:
-    resolution: {integrity: sha512-PLgQXQ6H2FWCaeRak8vvk1GW462lMxB5s3Jm673N82zI4vqtVUPuZdffdZbPDFRoU8kAhItWFtPCWiPpp4/EDg==}
-
-  pvutils@1.2.0:
-    resolution: {integrity: sha512-BbubeCEyTuQjVMakvJQ/Sxbc93F2pwmbsxONT/ZRrwU7Ua38d8unYTwXpTVLAKJ4BDuH9IGztCjQcd/N/39Dvg==}
-    engines: {node: '>=16.0.0'}
-
   qr@0.7.0:
     resolution: {integrity: sha512-/VrrACmOAwZVipuRITwfEwOL5oAMEHH5PTmBWaGtlTom2Thxaa+rhmna4zU9PRN2uLw2wdccbkHOLGZb1Q9SdA==}
     engines: {node: '>= 20.19.0'}
@@ -2599,9 +2569,6 @@ packages:
   web-worker@1.5.0:
     resolution: {integrity: sha512-RiMReJrTAiA+mBjGONMnjVDP2u3p9R1vkcGz6gDIrOMT3oGuYwX2WRMYI9ipkphSuE5XKEhydbhNEJh4NY9mlw==}
 
-  webcrypto-core@1.9.2:
-    resolution: {integrity: sha512-gsXecm82UQNlTBURJGuqOWy1Ww08S3kZUcr3aOJS02Pk0xLtkfeUAVC0u0xhgdonFme80edSJUIJyuvL/7250Q==}
-
   webpack-virtual-modules@0.6.2:
     resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
 
@@ -2648,18 +2615,6 @@ packages:
   wrap-ansi@9.0.2:
     resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
     engines: {node: '>=18'}
-
-  ws@7.5.13:
-    resolution: {integrity: sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA==}
-    engines: {node: '>=8.3.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: ^5.0.2
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
 
   wsl-utils@0.3.1:
     resolution: {integrity: sha512-g/eziiSUNBSsdDJtCLB8bdYEUMj4jR7AGeUo96p/3dTafgjHhpF4RiCFPiRILwjQoDXx5MqkBr4fwWtR3Ky4Wg==}
@@ -3038,70 +2993,35 @@ snapshots:
 
   '@noble/hashes@1.8.0': {}
 
-  '@openlv/core@0.3.0':
+  '@openlv/core@0.3.1':
     dependencies:
       '@noble/ciphers': 1.3.0
       '@noble/curves': 1.9.7
       eventemitter3: 5.0.4
 
-  '@openlv/session@0.3.1':
+  '@openlv/session@0.3.3':
     dependencies:
-      '@openlv/core': 0.3.0
-      '@openlv/signaling': 0.3.1
-      '@openlv/transport': 0.3.0
+      '@openlv/core': 0.3.1
+      '@openlv/signaling': 0.4.0
+      '@openlv/transport': 0.3.1
       eventemitter3: 5.0.4
-      globals: 16.5.0
       ts-pattern: 5.9.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
-  '@openlv/signaling@0.3.1':
+  '@openlv/signaling@0.4.0':
     dependencies:
-      '@openlv/core': 0.3.0
+      '@noble/curves': 1.9.7
+      '@openlv/core': 0.3.1
       eventemitter3: 5.0.4
-      globals: 16.5.0
-      gun: 0.2020.1241
       ts-pattern: 5.9.0
       websocket-mqtt: 0.0.7
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
-  '@openlv/transport@0.3.0':
+  '@openlv/transport@0.3.1':
     dependencies:
-      '@openlv/core': 0.3.0
+      '@openlv/core': 0.3.1
       eventemitter3: 5.0.4
-      globals: 16.5.0
       ts-pattern: 5.9.0
 
   '@oxc-project/types@0.147.0': {}
-
-  '@peculiar/asn1-schema@2.9.4':
-    dependencies:
-      '@peculiar/utils': 2.0.3
-      asn1js: 3.0.10
-      tslib: 2.8.1
-    optional: true
-
-  '@peculiar/json-schema@1.1.12':
-    dependencies:
-      tslib: 2.8.1
-    optional: true
-
-  '@peculiar/utils@2.0.3':
-    dependencies:
-      tslib: 2.8.1
-    optional: true
-
-  '@peculiar/webcrypto@1.7.1':
-    dependencies:
-      '@peculiar/asn1-schema': 2.9.4
-      '@peculiar/json-schema': 1.1.12
-      '@peculiar/utils': 2.0.3
-      tslib: 2.8.1
-      webcrypto-core: 1.9.2
-    optional: true
 
   '@pinojs/redact@0.4.0': {}
 
@@ -3503,13 +3423,6 @@ snapshots:
   array-differ@4.0.0: {}
 
   array-union@3.0.1: {}
-
-  asn1js@3.0.10:
-    dependencies:
-      pvtsutils: 1.3.6
-      pvutils: 1.2.0
-      tslib: 2.8.1
-    optional: true
 
   async@3.2.6: {}
 
@@ -4241,15 +4154,6 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  gun@0.2020.1241:
-    dependencies:
-      ws: 7.5.13
-    optionalDependencies:
-      '@peculiar/webcrypto': 1.7.1
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
   has-flag@4.0.0: {}
 
   hermes-estree@0.25.1: {}
@@ -4809,14 +4713,6 @@ snapshots:
     dependencies:
       escape-goat: 4.0.0
 
-  pvtsutils@1.3.6:
-    dependencies:
-      tslib: 2.8.1
-    optional: true
-
-  pvutils@1.2.0:
-    optional: true
-
   qr@0.7.0: {}
 
   quansync@0.2.11: {}
@@ -5293,15 +5189,6 @@ snapshots:
 
   web-worker@1.5.0: {}
 
-  webcrypto-core@1.9.2:
-    dependencies:
-      '@peculiar/asn1-schema': 2.9.4
-      '@peculiar/json-schema': 1.1.12
-      '@peculiar/utils': 2.0.3
-      asn1js: 3.0.10
-      tslib: 2.8.1
-    optional: true
-
   webpack-virtual-modules@0.6.2: {}
 
   websocket-mqtt@0.0.7: {}
@@ -5341,8 +5228,6 @@ snapshots:
       ansi-styles: 6.2.3
       string-width: 7.2.0
       strip-ansi: 7.2.0
-
-  ws@7.5.13: {}
 
   wsl-utils@0.3.1:
     dependencies:

@@ -1,6 +1,6 @@
 import { storage } from "wxt/utils/storage";
 
-export const RELAY_PROTOCOLS = ["mqtt", "ntfy", "gun"] as const;
+export const RELAY_PROTOCOLS = ["mqtt", "ntfy", "nostr"] as const;
 
 export type RelayProtocol = (typeof RELAY_PROTOCOLS)[number];
 
@@ -17,7 +17,7 @@ export type SignalingSettings = {
 export const DEFAULT_RELAY_URLS: Record<RelayProtocol, string> = {
   mqtt: "wss://test.mosquitto.org:8081/mqtt",
   ntfy: "https://ntfy.sh",
-  gun: "wss://try.axe.eco/gun",
+  nostr: "wss://relay.nostr.net/",
 };
 
 const legacyRelayStore = storage.defineItem<Relay | undefined>(
