@@ -1,5 +1,4 @@
 import LucideChevronRight from "lucide-solid/icons/chevron-right";
-import LucideEllipsis from "lucide-solid/icons/ellipsis";
 import LucideWallet from "lucide-solid/icons/wallet";
 import {
   createEffect,
@@ -15,6 +14,7 @@ import {
 } from "solid-js";
 import { browser } from "wxt/browser";
 
+import { connectionStore } from "../../connections/registry.js";
 import {
   DEFAULT_RELAY_URLS,
   getSavedRelay,
@@ -28,10 +28,11 @@ import { transportStore } from "../../connections/settings.js";
 import { isEngineEvent } from "../../engine/port.js";
 import { t } from "../../i18n/catalogue.js";
 import { call } from "../../ui/client.js";
+import { ConnectionList } from "../../ui/ConnectionList.js";
 import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
+import { ConnectionRow } from "../../ui/ConnectionRow.js";
 import { Header } from "../../ui/Header.js";
 import { createPairing } from "../../ui/pairing.js";
-import { SiteIcon, WalletIcon } from "../../ui/WalletIcon.js";
 
 const PairingScreen = lazy(async () => {
   const { PairingScreen } = await import("../../ui/PairingScreen.js");
@@ -67,6 +68,8 @@ export const App = (): JSX.Element => {
     return reply.result.value;
   });
   const [transport, { mutate: updateTransport }] = createResource(() => view() === "transport", async () => await transportStore.getValue());
+
+  onCleanup(connectionStore.watch(() => void refetch()));
   const [protocol, setProtocol] = createSignal<RelayProtocol>("mqtt");
   const [servers, setServers] = createSignal<SignalingSettings["s"]>({});
   const server = () => servers()[protocol()] ?? DEFAULT_RELAY_URLS[protocol()];
@@ -208,7 +211,7 @@ export const App = (): JSX.Element => {
                 class="screen-layer"
               >
                 <Show when={screen === "list"}>
-                  <Show when={!connections.loading} fallback={<div class="state" role="status"><p>{t("popup.loadingConnections")}</p></div>}>
+                  <Show when={connections.state !== "pending"} fallback={<div class="state" role="status"><p>{t("popup.loadingConnections")}</p></div>}>
                     <Show
                       when={(connections() ?? []).length > 0}
                       fallback={(
@@ -219,33 +222,15 @@ export const App = (): JSX.Element => {
                       )}
                     >
                       <div class="connection-list">
-                        <For each={connections()}>
+                        <ConnectionList connections={connections() ?? []}>
                           {entry => (
-                            <div class="connection-row">
-                              <WalletIcon wallet={entry.wallet} isConnected={entry.state === "connected"} label={t(entry.state === "connected" ? "popup.walletConnected" : "popup.walletNotConnected")} />
-                              <div class="connection-copy">
-                                <strong>{entry.wallet?.name ?? t("wallet.unnamed")}</strong>
-                                <Show when={entry.binding}>
-                                  {binding => (
-                                    <span>
-                                      <SiteIcon icon={binding().icon} />
-                                      {binding().origin}
-                                    </span>
-                                  )}
-                                </Show>
-                              </div>
-                              <details class="row-menu">
-                                <summary aria-label={t("popup.actionsFor", { name: entry.wallet?.name ?? t("wallet.unnamed") })}><LucideEllipsis /></summary>
-                                <div class="menu-items">
-                                  <Show when={entry.binding}>
-                                    {binding => <button type="button" onClick={() => void unbind(binding().origin)}>{t("actions.revoke")}</button>}
-                                  </Show>
-                                  <button type="button" onClick={() => void forget(entry.connectionId)}>{t("actions.forget")}</button>
-                                </div>
-                              </details>
-                            </div>
+                            <ConnectionRow
+                              connection={entry()}
+                              onForget={() => void forget(entry().connectionId)}
+                              onRevoke={origin => void unbind(origin)}
+                            />
                           )}
-                        </For>
+                        </ConnectionList>
                       </div>
                     </Show>
                     <button type="button" class="primary full" onClick={() => void connect()}>{t("actions.connect")}</button>

@@ -63,6 +63,7 @@
   "approval.transferWarning": "Connecting here takes it away from {origin}.",
   "approval.loadingAccounts": "Loading accounts...",
   "approval.accountsSiteMaySee": "Accounts this site may see",
+  "approval.couldNotUpdateConnection": "Could not update the wallet connection",
   "approval.couldNotRefresh": "Could not refresh the request",
   "approval.couldNotLoadAccounts": "Could not load accounts",
   "approval.couldNotLoadNewConnection": "Could not load the new connection",
