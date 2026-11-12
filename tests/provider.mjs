@@ -197,7 +197,7 @@ test("origins pair during approval and route only to their bound wallet", { time
     await popup.getByRole("button", { name: "Connect", exact: true }).click();
     const secondWallet = await joinWallet(popup);
 
-    await popup.getByRole("button", { name: "Done", exact: true }).click();
+    await popup.getByRole("heading", { name: "Connections", exact: true }).waitFor();
     const pageCount = openedPages;
 
     await firstSite.reload();
@@ -340,6 +340,12 @@ test("a refused relay ends on the error screen and Back leaves a stalled pairing
     }, stalledRelay);
     await popup.reload();
     await popup.getByText("Stored wallet", { exact: true }).waitFor();
+    const storedRow = popup.locator(".connection-row");
+
+    await storedRow.locator("summary").click();
+    assert.equal(await storedRow.getByRole("button", { name: "Connect", exact: true }).count(), 0);
+    await storedRow.getByRole("button", { name: "Forget", exact: true }).waitFor();
+    await storedRow.locator("summary").click();
     assert.equal(await popup.evaluate(async () => (await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] })).length), 0);
 
     await popup.evaluate(async () => {
@@ -366,8 +372,21 @@ test("a refused relay ends on the error screen and Back leaves a stalled pairing
 
     await popup.getByRole("button", { name: "Connect", exact: true }).click();
     await popup.getByText("Waiting for network connection...", { exact: true }).waitFor();
+    await worker.evaluate(() => {
+      const remove = chrome.storage.session.remove.bind(chrome.storage.session);
+
+      chrome.storage.session.remove = async () => {
+        chrome.storage.session.remove = remove;
+        throw new Error("Could not clear pairing");
+      };
+    });
+    await popup.getByRole("button", { name: "Back", exact: true }).click();
+    await popup.getByRole("alert").filter({ hasText: "Could not clear pairing" }).waitFor();
+    assert.equal(await popup.getByRole("button", { name: "Back", exact: true }).count(), 1);
+    assert.ok(await popup.evaluate(async () => (await chrome.storage.session.get("pairing")).pairing));
     await popup.getByRole("button", { name: "Back", exact: true }).click();
     await popup.getByText("Stored wallet", { exact: true }).waitFor();
+    assert.equal(await popup.evaluate(async () => (await chrome.storage.session.get("pairing")).pairing), undefined);
 
     await popup.evaluate(async (server) => {
       await chrome.storage.local.set({ signaling: { p: "mqtt", s: { mqtt: server } } });
@@ -474,7 +493,7 @@ test("a pairing outlives the popup and the service worker", { timeout: 90_000 },
     assert.equal(opened, true);
 
     popup = await openPopup();
-    await popup.getByText("Connected Successfully!", { exact: true }).waitFor({ timeout: 30_000 });
+    await popup.getByRole("heading", { name: "Connections", exact: true }).waitFor({ timeout: 30_000 });
     await popup.close();
 
     const site = await context.newPage();
@@ -483,6 +502,7 @@ test("a pairing outlives the popup and the service worker", { timeout: 90_000 },
     await site.locator("[data-rdns='sh.openlv.connect']").waitFor();
     const { approval, response } = await beginApproval(context, site);
 
+    await approval.getByRole("radio").first().check();
     await approval.getByRole("radio", { checked: true }).waitFor();
     await approval.getByRole("checkbox", { checked: true }).first().waitFor();
     await approval.getByRole("button", { name: "Connect", exact: true }).click();
@@ -573,9 +593,7 @@ test("wallet icons from peer info show safely in the list and the approval windo
       await wallet.goto(`http://localhost:${port}/wallet/${icon ? `?icon=${encodeURIComponent(icon)}` : ""}`);
       await wallet.locator("#url").evaluate((field, value) => { field.value = value; }, url);
       await wallet.locator("#connect").click();
-      await popup.getByText("Connected Successfully!", { exact: true }).waitFor({ timeout: 30_000 });
-      assert.equal(await popup.locator(".connected-wallet img").count(), icon?.startsWith("data:") ? 1 : 0);
-      await popup.getByRole("button", { name: "Done", exact: true }).click();
+      await popup.getByRole("heading", { name: "Connections", exact: true }).waitFor();
     }
 
     const rowIcons = async page => await page.locator(".wallet-state").evaluateAll(spans => spans.map(span => span.querySelector("img")?.getAttribute("src") ?? (span.querySelector("svg") ? "neutral" : "none")));

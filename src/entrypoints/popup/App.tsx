@@ -19,7 +19,6 @@ import {
   DEFAULT_RELAY_URLS,
   getSavedRelay,
   getSignalingSettings,
-  type Relay,
   RELAY_PROTOCOLS,
   type RelayProtocol,
   type SignalingSettings,
@@ -75,10 +74,17 @@ export const App = (): JSX.Element => {
   let saving = Promise.resolve();
   let hasSaveFailure = false;
 
-  createEffect(on(() => pairing.connection()?.connectionId, (connectionId, previous) => {
-    if (connectionId && view() === "list") setView("connect");
+  createEffect(on(pairing.connection, (connection, previous) => {
+    if (connection?.state === "connected") {
+      if (pairing.surface() === "popup") void pairing.end();
+      else setView("list");
 
-    if (!connectionId && previous && view() === "connect") {
+      return;
+    }
+
+    if (connection && view() === "list") setView("connect");
+
+    if (!connection && previous && view() === "connect") {
       setView("list");
       void refetch();
     }
@@ -143,12 +149,12 @@ export const App = (): JSX.Element => {
   browser.runtime.onMessage.addListener(onRuntimeMessage);
   onCleanup(() => browser.runtime.onMessage.removeListener(onRuntimeMessage));
 
-  const connect = async (relay?: Relay) => {
+  const connect = async () => {
     await saving;
 
     if (hasSaveFailure) return;
 
-    const selected = relay ?? await getSavedRelay();
+    const selected = await getSavedRelay();
 
     if (!selected.s.trim()) {
       setFailure(t("popup.setSignalingServer"));
@@ -168,8 +174,9 @@ export const App = (): JSX.Element => {
     if (hasSaveFailure) return;
 
     if (view() === "connect") {
-      pairing.end();
-      void refetch();
+      if (!await pairing.end()) return;
+
+      await refetch();
     }
 
     setFailure(undefined);
@@ -230,9 +237,6 @@ export const App = (): JSX.Element => {
                               <details class="row-menu">
                                 <summary aria-label={t("popup.actionsFor", { name: entry.wallet?.name ?? t("wallet.unnamed") })}><LucideEllipsis /></summary>
                                 <div class="menu-items">
-                                  <Show when={entry.state === "disconnected"}>
-                                    <button type="button" onClick={() => void connect(entry.relay)}>{t("actions.connect")}</button>
-                                  </Show>
                                   <Show when={entry.binding}>
                                     {binding => <button type="button" onClick={() => void unbind(binding().origin)}>{t("actions.revoke")}</button>}
                                   </Show>
@@ -310,13 +314,15 @@ export const App = (): JSX.Element => {
                     <PairingScreen
                       pairing={pairing}
                       onDone={async () => {
-                        pairing.end();
+                        if (!await pairing.end()) return;
+
                         await refetch();
                         setView("list");
                       }}
-                      onRetry={() => {
-                        pairing.end();
-                        void open("signaling");
+                      onRetry={async () => {
+                        if (!await pairing.end()) return;
+
+                        await open("signaling");
                       }}
                     />
                   </Suspense>

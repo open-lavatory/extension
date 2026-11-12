@@ -84,9 +84,8 @@ try {
     await capture(popup, "connect-qr");
     const wallet = await joinWallet(popup);
 
-    await popup.getByRole("button", { name: "Done", exact: true }).waitFor();
+    await popup.getByRole("heading", { name: "Connections", exact: true }).waitFor();
     await capture(popup, "connect-success");
-    await popup.getByRole("button", { name: "Done", exact: true }).click();
     return wallet;
   };
   const approvalFor = async (site) => {

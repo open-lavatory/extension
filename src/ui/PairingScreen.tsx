@@ -52,6 +52,9 @@ export const PairingScreen = (properties: {
           <button type="button" class="primary full" onClick={properties.onRetry}>{t("connectionFlow.tryAgain")}</button>
         </div>
       </Show>
+      <Show when={!hasFailed() && properties.pairing.failure()}>
+        {message => <p class="bad" role="alert">{message()}</p>}
+      </Show>
     </>
   );
 };

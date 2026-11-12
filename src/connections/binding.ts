@@ -1,8 +1,7 @@
 import {
   type Connection,
-  connectionStore,
-  getConnection,
   listConnections,
+  updateConnections,
 } from "./registry.js";
 
 export type BindResult
@@ -28,17 +27,18 @@ export const bindOrigin = async (
   accounts: string[],
   icon: string | undefined,
 ): Promise<BindResult> => {
-  const target = await getConnection(connectionId);
+  let result: BindResult = { ok: false, reason: "unknown-connection" };
 
-  if (!target) return { ok: false, reason: "unknown-connection" };
+  await updateConnections((current) => {
+    const target = current.find(entry => entry.connectionId === connectionId);
 
-  const displaced = target.binding?.origin === origin
-    ? undefined
-    : target.binding?.origin;
-  const current = await connectionStore.getValue();
+    if (!target) return current;
 
-  await connectionStore.setValue(
-    current.map((entry) => {
+    const displaced = target.binding?.origin === origin ? undefined : target.binding?.origin;
+
+    result = displaced ? { ok: true, displaced } : { ok: true };
+
+    return current.map((entry) => {
       if (entry.connectionId === connectionId) {
         return { ...entry, binding: { origin, accounts, icon } };
       }
@@ -50,20 +50,17 @@ export const bindOrigin = async (
       }
 
       return entry;
-    }),
-  );
+    });
+  });
 
-  return displaced ? { ok: true, displaced } : { ok: true };
+  return result;
 };
 
 export const unbindOrigin = async (origin: string): Promise<void> => {
-  const current = await connectionStore.getValue();
-
-  await connectionStore.setValue(
+  await updateConnections(current =>
     current.map((entry) => {
       if (entry.binding?.origin !== origin) return entry;
 
       return { ...entry, binding: undefined };
-    }),
-  );
+    }));
 };
