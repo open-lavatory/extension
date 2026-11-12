@@ -3,6 +3,7 @@ import { defineContentScript } from "wxt/utils/define-content-script";
 import openlvIcon from "../assets/openlv.svg?raw";
 import {
   isPageMessage,
+  isRpcFailure,
   PAGE_CHANNEL,
   type PageRequest,
   type RpcFailure,
@@ -18,15 +19,17 @@ const PROVIDER_INFO = {
 
 class ProviderRpcError extends Error {
   readonly code: number;
+  readonly data: unknown;
 
   constructor(failure: RpcFailure) {
     super(failure.message);
     this.name = "ProviderRpcError";
     this.code = failure.code;
+    this.data = failure.data;
   }
 }
 
-type Listener = (data: never) => void;
+type Listener = (data: unknown) => void;
 
 type Settle = {
   resolve: (value: unknown) => void;
@@ -64,9 +67,12 @@ const createProvider = () => {
 
     if (message.kind === "event") {
       const subscribed = listeners.get(message.event) ?? new Set<Listener>();
+      const data = message.event === "disconnect" && isRpcFailure(message.data)
+        ? new ProviderRpcError(message.data)
+        : message.data;
 
       for (const listener of subscribed) {
-        (listener as (data: unknown) => void)(message.data);
+        listener(data);
       }
     }
   });

@@ -5,6 +5,7 @@ import { browser } from "wxt/browser";
 
 import type { Wallet } from "../connections/registry.js";
 import type { Relay } from "../connections/relay.js";
+import { isWalletAddress, isWalletNotification } from "./notification.js";
 import type {
   ConnectionState,
   EngineEvent,
@@ -29,7 +30,6 @@ type Live = {
 
 const live = new Map<string, Live>();
 const preparing = new Map<string, object>();
-const ADDRESS = /^0x[\da-f]{40}$/iu;
 
 const emit = (event: EngineEvent): void => {
   void (async () => {
@@ -96,16 +96,11 @@ const onPeerRequest = async (connectionId: string, message: unknown): Promise<ob
     && "params" in message
     && Array.isArray(message.params)
   ) {
-    const [value]: unknown[] = message.params;
+    const [data]: unknown[] = message.params;
+    const notification = { event: message.method, data };
 
-    if (message.method === "accountsChanged" && Array.isArray(value) && value.every((account): account is string => typeof account === "string" && ADDRESS.test(account))) {
-      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, event: "accountsChanged", data: value } satisfies EngineEvent);
-
-      return null;
-    }
-
-    if (typeof value === "string" && message.method === "chainChanged" && /^0x[\da-f]+$/iu.test(value)) {
-      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, event: "chainChanged", data: value } satisfies EngineEvent);
+    if (isWalletNotification(notification)) {
+      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, ...notification } satisfies EngineEvent);
 
       return null;
     }
@@ -255,7 +250,7 @@ export const verify = async (
   }
 
   const values: unknown[] = result.value;
-  const accounts = values.filter((account): account is string => typeof account === "string" && ADDRESS.test(account));
+  const accounts = values.filter(isWalletAddress);
 
   if (accounts.length !== values.length) return { ok: false, error: "The wallet returned invalid accounts", code: -32_603 };
 

@@ -11,7 +11,13 @@ export type PageRequest = {
 export type RpcFailure = {
   code: number;
   message: string;
+  data?: unknown;
 };
+
+export const isRpcFailure = (value: unknown): value is RpcFailure =>
+  typeof value === "object" && value !== null
+  && "code" in value && typeof value.code === "number"
+  && "message" in value && typeof value.message === "string";
 
 export type PageResponse = {
   channel: typeof PAGE_CHANNEL;
@@ -22,7 +28,7 @@ export type PageResponse = {
 export type PageEvent = {
   channel: typeof PAGE_CHANNEL;
   kind: "event";
-  event: "accountsChanged" | "chainChanged" | "connect" | "disconnect";
+  event: "accountsChanged" | "chainChanged" | "connect" | "disconnect" | "message";
   data: unknown;
 };
 
@@ -40,7 +46,7 @@ export const isPageMessage = (value: unknown): value is PageMessage => {
   if (value.kind === "event") {
     return "event" in value
       && typeof value.event === "string"
-      && ["accountsChanged", "chainChanged", "connect", "disconnect"].includes(value.event)
+      && ["accountsChanged", "chainChanged", "connect", "disconnect", "message"].includes(value.event)
       && "data" in value;
   }
 
@@ -54,12 +60,7 @@ export const isPageMessage = (value: unknown): value is PageMessage => {
 
   if ("error" in value) {
     return !("result" in value)
-      && typeof value.error === "object"
-      && value.error !== null
-      && "code" in value.error
-      && typeof value.error.code === "number"
-      && "message" in value.error
-      && typeof value.error.message === "string";
+      && isRpcFailure(value.error);
   }
 
   return "result" in value;

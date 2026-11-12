@@ -1,6 +1,7 @@
 import { type Browser, browser } from "wxt/browser";
 import { defineBackground } from "wxt/utils/define-background";
 
+import { siteAccounts, visibleAccounts, walletAccounts } from "../connections/accounts.js";
 import {
   bindOrigin,
   connectionForOrigin,
@@ -81,26 +82,6 @@ const views = async (): Promise<ConnectionView[]> => {
     ...connection,
     state: states[connection.connectionId] ?? "disconnected",
   }));
-};
-
-const readAccounts = async (connectionId: string): Promise<UiReply> => {
-  const result = await engineSend(connectionId, {
-    method: "eth_accounts",
-    params: [],
-  });
-
-  if (!result.ok) {
-    return {
-      for: "approve:accounts",
-      result: { ok: false, error: result.error },
-    };
-  }
-
-  const accounts = Array.isArray(result.value)
-    ? result.value.filter(entry => typeof entry === "string")
-    : [];
-
-  return { for: "approve:accounts", result: { ok: true, value: accounts } };
 };
 
 export default defineBackground(() => {
@@ -197,7 +178,11 @@ export default defineBackground(() => {
   ): Promise<PageResponse> => {
     const existing = await connectionForOrigin(origin);
 
-    if (existing?.binding) return answerPage(messageId, existing.binding.accounts);
+    if (existing?.binding) {
+      const accounts = await siteAccounts(existing);
+
+      if (accounts.length > 0) return answerPage(messageId, accounts);
+    }
 
     const icon = pageUrl === undefined ? undefined : await siteIcon(pageUrl);
     const decision = await askApproval(origin, icon);
@@ -293,7 +278,7 @@ export default defineBackground(() => {
     const connection = await connectionForOrigin(origin);
 
     if (route.kind === "accounts") {
-      return answerPage(request.messageId, connection?.binding?.accounts ?? []);
+      return answerPage(request.messageId, connection ? await siteAccounts(connection) : []);
     }
 
     if (route.kind === "chainId" && connection?.chainId) {
@@ -381,7 +366,7 @@ export default defineBackground(() => {
       }
 
       case "approve:accounts": {
-        return await readAccounts(command.connectionId);
+        return { for: "approve:accounts", result: await walletAccounts(command.connectionId) };
       }
 
       case "approve:decide": {
@@ -455,11 +440,13 @@ export default defineBackground(() => {
         await Promise.allSettled([previous]);
         const connection = await getConnection(message.connectionId);
 
-        if (message.event === "chainChanged") await patchConnection(message.connectionId, { chainId: message.data });
-        else if (connection?.binding) await patchConnection(message.connectionId, { binding: { ...connection.binding, accounts: message.data } });
+        if (message.event === "chainChanged" || message.event === "connect") {
+          await patchConnection(message.connectionId, { chainId: message.event === "connect" ? message.data.chainId : message.data });
+        }
 
         if (connection?.binding) {
-          const notification = { origin: connection.binding.origin, event: { channel: PAGE_CHANNEL, kind: "event", event: message.event, data: message.data } satisfies PageEvent };
+          const data = message.event === "accountsChanged" ? visibleAccounts(message.data, connection.binding.accounts) : message.data;
+          const notification = { origin: connection.binding.origin, event: { channel: PAGE_CHANNEL, kind: "event", event: message.event, data } satisfies PageEvent };
           const tabs = await browser.tabs.query({});
 
           await Promise.allSettled(tabs.flatMap(tab => (tab["id"] === undefined ? [] : [browser.tabs.sendMessage(tab["id"], notification)])));
