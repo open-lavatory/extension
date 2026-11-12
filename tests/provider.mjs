@@ -496,6 +496,7 @@ test("a pairing outlives the popup and the service worker", { timeout: 90_000 },
     await site.locator("[data-rdns='sh.openlv.connect']").waitFor();
     const { approval, response } = await beginApproval(context, site);
 
+    await approval.getByRole("radio").first().check();
     await approval.getByRole("radio", { checked: true }).waitFor();
     await approval.getByRole("checkbox", { checked: true }).first().waitFor();
     await approval.getByRole("button", { name: "Connect", exact: true }).click();
