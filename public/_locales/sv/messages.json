@@ -1,4 +1,7 @@
 {
+  "extName": {
+    "message": "openlv-connect"
+  },
   "extDescription": {
     "message": "Skapa och hantera openlv-anslutningar"
   }
