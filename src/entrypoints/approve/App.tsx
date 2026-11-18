@@ -109,8 +109,9 @@ export const App = (): JSX.Element => {
 
       if (!updated) throw new Error(t("approval.couldNotLoadNewConnection"));
 
+      if (!await pairing.end()) return;
+
       setPairing(false);
-      pairing.end();
       await choose(updated);
     }
     catch (error) {
@@ -152,7 +153,8 @@ export const App = (): JSX.Element => {
 
   const backFromPair = async (): Promise<void> => {
     try {
-      pairing.end();
+      if (!await pairing.end()) return;
+
       await refetch();
       setPairing(false);
     }

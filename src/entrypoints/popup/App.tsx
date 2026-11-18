@@ -168,8 +168,9 @@ export const App = (): JSX.Element => {
     if (hasSaveFailure) return;
 
     if (view() === "connect") {
-      pairing.end();
-      void refetch();
+      if (!await pairing.end()) return;
+
+      await refetch();
     }
 
     setFailure(undefined);
@@ -310,13 +311,15 @@ export const App = (): JSX.Element => {
                     <PairingScreen
                       pairing={pairing}
                       onDone={async () => {
-                        pairing.end();
+                        if (!await pairing.end()) return;
+
                         await refetch();
                         setView("list");
                       }}
-                      onRetry={() => {
-                        pairing.end();
-                        void open("signaling");
+                      onRetry={async () => {
+                        if (!await pairing.end()) return;
+
+                        await open("signaling");
                       }}
                     />
                   </Suspense>
