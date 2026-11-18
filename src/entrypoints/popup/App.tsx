@@ -1,5 +1,4 @@
 import LucideChevronRight from "lucide-solid/icons/chevron-right";
-import LucideEllipsis from "lucide-solid/icons/ellipsis";
 import LucideWallet from "lucide-solid/icons/wallet";
 import {
   createEffect,
@@ -15,6 +14,7 @@ import {
 } from "solid-js";
 import { browser } from "wxt/browser";
 
+import { type Binding, type Connection, connectionStore } from "../../connections/registry.js";
 import {
   DEFAULT_RELAY_URLS,
   getSavedRelay,
@@ -29,10 +29,12 @@ import { transportStore } from "../../connections/settings.js";
 import { isEngineEvent } from "../../engine/port.js";
 import { t } from "../../i18n/catalogue.js";
 import { call } from "../../ui/client.js";
+import { ConnectionList } from "../../ui/ConnectionList.js";
 import { ConnectionLoading } from "../../ui/ConnectionLoading.js";
+import { ConnectionRow } from "../../ui/ConnectionRow.js";
 import { Header } from "../../ui/Header.js";
 import { createPairing } from "../../ui/pairing.js";
-import { SiteIcon, WalletIcon } from "../../ui/WalletIcon.js";
+import { PermissionsEditor } from "../../ui/PermissionsEditor.js";
 
 const PairingScreen = lazy(async () => {
   const { PairingScreen } = await import("../../ui/PairingScreen.js");
@@ -45,18 +47,20 @@ const TransportSettings = lazy(async () => {
   return { default: TransportSettings };
 });
 
-type View = "list" | "settings" | "signaling" | "transport" | "connect";
+type Screen = "list" | "settings" | "signaling" | "transport" | "connect";
+type View = { kind: Screen; } | { kind: "permissions"; connection: Connection & { binding: Binding; }; };
 
-const titles: Record<View, string> = {
+const titles: Record<Screen | "permissions", string> = {
   list: t("popup.title"),
   settings: t("settings.title"),
   signaling: t("settings.signaling.title"),
   transport: t("settings.transport.title"),
   connect: t("pairing.title"),
+  permissions: t("actions.editPermissions"),
 };
 
 export const App = (): JSX.Element => {
-  const [view, setView] = createSignal<View>("list");
+  const [view, setView] = createSignal<View>({ kind: "list" });
   const pairing = createPairing("popup");
   const [connections, { refetch }] = createResource(async () => {
     const reply = await call({ kind: "ui:list" });
@@ -67,7 +71,9 @@ export const App = (): JSX.Element => {
 
     return reply.result.value;
   });
-  const [transport, { mutate: updateTransport }] = createResource(() => view() === "transport", async () => await transportStore.getValue());
+  const [transport, { mutate: updateTransport }] = createResource(() => view().kind === "transport", async () => await transportStore.getValue());
+
+  onCleanup(connectionStore.watch(() => void refetch()));
   const [protocol, setProtocol] = createSignal<RelayProtocol>("mqtt");
   const [servers, setServers] = createSignal<SignalingSettings["s"]>({});
   const server = () => servers()[protocol()] ?? DEFAULT_RELAY_URLS[protocol()];
@@ -76,10 +82,10 @@ export const App = (): JSX.Element => {
   let hasSaveFailure = false;
 
   createEffect(on(() => pairing.connection()?.connectionId, (connectionId, previous) => {
-    if (connectionId && view() === "list") setView("connect");
+    if (connectionId && view().kind === "list") setView({ kind: "connect" });
 
-    if (!connectionId && previous && view() === "connect") {
-      setView("list");
+    if (!connectionId && previous && view().kind === "connect") {
+      setView({ kind: "list" });
       void refetch();
     }
   }));
@@ -101,7 +107,7 @@ export const App = (): JSX.Element => {
     })();
   };
 
-  const open = async (next: View) => {
+  const open = async (next: Screen) => {
     await saving;
 
     if (hasSaveFailure) return;
@@ -115,7 +121,7 @@ export const App = (): JSX.Element => {
       setServers(remembered.s);
     }
 
-    setView(next);
+    setView({ kind: next });
   };
 
   const saveProtocol = (p: RelayProtocol) => {
@@ -143,7 +149,7 @@ export const App = (): JSX.Element => {
   browser.runtime.onMessage.addListener(onRuntimeMessage);
   onCleanup(() => browser.runtime.onMessage.removeListener(onRuntimeMessage));
 
-  const connect = async (relay?: Relay) => {
+  const connect = async (relay?: Relay, connectionId?: string) => {
     await saving;
 
     if (hasSaveFailure) return;
@@ -157,8 +163,8 @@ export const App = (): JSX.Element => {
     }
 
     setFailure(undefined);
-    setView("connect");
-    await pairing.start(selected);
+    setView({ kind: "connect" });
+    await pairing.start(selected, connectionId);
     await refetch();
   };
 
@@ -167,13 +173,14 @@ export const App = (): JSX.Element => {
 
     if (hasSaveFailure) return;
 
-    if (view() === "connect") {
-      pairing.end();
-      void refetch();
+    if (view().kind === "connect") {
+      if (!await pairing.end()) return;
+
+      await refetch();
     }
 
     setFailure(undefined);
-    setView(view() === "transport" || view() === "signaling" ? "settings" : "list");
+    setView({ kind: view().kind === "transport" || view().kind === "signaling" ? "settings" : "list" });
   };
 
   const forget = async (targetId: string) => {
@@ -186,12 +193,18 @@ export const App = (): JSX.Element => {
     void refetch();
   };
 
+  const editPermissions = (connectionId: string) => {
+    const connection = connections()?.find(entry => entry.connectionId === connectionId);
+
+    if (connection?.binding) setView({ kind: "permissions", connection: { ...connection, binding: connection.binding } });
+  };
+
   return (
     <div class="shell">
       <Header
-        title={titles[view()]}
-        onBack={view() === "list" ? undefined : () => void back()}
-        onSettings={view() === "list" ? () => void open("settings") : undefined}
+        title={titles[view().kind]}
+        onBack={view().kind === "list" ? undefined : () => void back()}
+        onSettings={view().kind === "list" ? () => void open("settings") : undefined}
       />
       <main class="body">
         <div class="screen-stack">
@@ -200,8 +213,8 @@ export const App = (): JSX.Element => {
               <div
                 class="screen-layer"
               >
-                <Show when={screen === "list"}>
-                  <Show when={!connections.loading} fallback={<div class="state" role="status"><p>{t("popup.loadingConnections")}</p></div>}>
+                <Show when={screen.kind === "list"}>
+                  <Show when={connections.state !== "pending"} fallback={<div class="state" role="status"><p>{t("popup.loadingConnections")}</p></div>}>
                     <Show
                       when={(connections() ?? []).length > 0}
                       fallback={(
@@ -212,43 +225,24 @@ export const App = (): JSX.Element => {
                       )}
                     >
                       <div class="connection-list">
-                        <For each={connections()}>
+                        <ConnectionList connections={connections() ?? []}>
                           {entry => (
-                            <div class="connection-row">
-                              <WalletIcon wallet={entry.wallet} isConnected={entry.state === "connected"} label={t(entry.state === "connected" ? "popup.walletConnected" : "popup.walletNotConnected")} />
-                              <div class="connection-copy">
-                                <strong>{entry.wallet?.name ?? t("wallet.unnamed")}</strong>
-                                <Show when={entry.binding}>
-                                  {binding => (
-                                    <span>
-                                      <SiteIcon icon={binding().icon} />
-                                      {binding().origin}
-                                    </span>
-                                  )}
-                                </Show>
-                              </div>
-                              <details class="row-menu">
-                                <summary aria-label={t("popup.actionsFor", { name: entry.wallet?.name ?? t("wallet.unnamed") })}><LucideEllipsis /></summary>
-                                <div class="menu-items">
-                                  <Show when={entry.state === "disconnected"}>
-                                    <button type="button" onClick={() => void connect(entry.relay)}>{t("actions.connect")}</button>
-                                  </Show>
-                                  <Show when={entry.binding}>
-                                    {binding => <button type="button" onClick={() => void unbind(binding().origin)}>{t("actions.revoke")}</button>}
-                                  </Show>
-                                  <button type="button" onClick={() => void forget(entry.connectionId)}>{t("actions.forget")}</button>
-                                </div>
-                              </details>
-                            </div>
+                            <ConnectionRow
+                              connection={entry()}
+                              onReconnect={() => void connect(entry().relay, entry().connectionId)}
+                              onForget={() => void forget(entry().connectionId)}
+                              onRevoke={origin => void unbind(origin)}
+                              onEditPermissions={connectionId => void editPermissions(connectionId)}
+                            />
                           )}
-                        </For>
+                        </ConnectionList>
                       </div>
                     </Show>
                     <button type="button" class="primary full" onClick={() => void connect()}>{t("actions.connect")}</button>
                   </Show>
                 </Show>
 
-                <Show when={screen === "settings"}>
+                <Show when={screen.kind === "settings"}>
                   <nav class="settings-menu" aria-label={t("settings.title")}>
                     <button type="button" onClick={() => void open("signaling")}>
                       <span>{t("settings.signaling.title")}</span>
@@ -263,7 +257,7 @@ export const App = (): JSX.Element => {
                   </nav>
                 </Show>
 
-                <Show when={screen === "signaling"}>
+                <Show when={screen.kind === "signaling"}>
                   <div class="signaling-settings">
                     <div class="settings-row">
                       <span id="protocol-label">{t("common.protocol")}</span>
@@ -289,7 +283,7 @@ export const App = (): JSX.Element => {
                   </div>
                 </Show>
 
-                <Show when={screen === "transport"}>
+                <Show when={screen.kind === "transport"}>
                   <Suspense fallback={<p class="empty">{t("popup.loadingSettings")}</p>}>
                     <Show when={transport()} fallback={<p class="empty">{t("popup.loadingSettings")}</p>}>
                       {config => (
@@ -305,21 +299,35 @@ export const App = (): JSX.Element => {
                   </Suspense>
                 </Show>
 
-                <Show when={screen === "connect"}>
+                <Show when={screen.kind === "connect"}>
                   <Suspense fallback={<ConnectionLoading />}>
                     <PairingScreen
                       pairing={pairing}
                       onDone={async () => {
-                        pairing.end();
+                        if (!await pairing.end()) return;
+
                         await refetch();
-                        setView("list");
+                        setView({ kind: "list" });
                       }}
-                      onRetry={() => {
-                        pairing.end();
-                        void open("signaling");
+                      onRetry={async () => {
+                        if (!await pairing.end()) return;
+
+                        await open("signaling");
                       }}
                     />
                   </Suspense>
+                </Show>
+
+                <Show when={screen.kind === "permissions" && screen}>
+                  {permissions => (
+                    <PermissionsEditor
+                      connection={permissions().connection}
+                      onSaved={async () => {
+                        await refetch();
+                        setView(current => (current === permissions() ? { kind: "list" } : current));
+                      }}
+                    />
+                  )}
                 </Show>
               </div>
             )}

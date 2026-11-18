@@ -17,6 +17,9 @@ importers:
       '@openlv/transport':
         specifier: 0.3.1
         version: 0.3.1
+      blo:
+        specifier: ^2.1.1
+        version: 2.1.1
       lucide-solid:
         specifier: ^0.574.0
         version: 0.574.0(solid-js@1.9.15)
@@ -26,6 +29,9 @@ importers:
       solid-js:
         specifier: ^1.9.15
         version: 1.9.15
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
     devDependencies:
       '@wxt-dev/module-solid':
         specifier: ^1.1.4
@@ -805,6 +811,9 @@ packages:
     resolution: {integrity: sha512-H0ulySigv6icDJ1F7SjtdCD6PrhTpdYCmP0CactWy1+ekh0AFd0o1Wn5T8b+hnTmdBx19u9yhL6wvCylXMY7zw==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  blo@2.1.1:
+    resolution: {integrity: sha512-aphjv4MrxDzs8923XML7v67RatKijpvH48Fe4WHibRwYfWvgDlcfoQs/3Nkral/J91C2GxDLPLGjq6zF3lsHJw==}
 
   bluebird@3.7.2:
     resolution: {integrity: sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==}
@@ -3454,6 +3463,8 @@ snapshots:
   balanced-match@4.0.4: {}
 
   baseline-browser-mapping@2.11.20: {}
+
+  blo@2.1.1: {}
 
   bluebird@3.7.2: {}
 

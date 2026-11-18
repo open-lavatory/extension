@@ -11,8 +11,8 @@ export type Pairing = {
   failure: Accessor<string | undefined>;
   isStarting: Accessor<boolean>;
   copied: Accessor<boolean>;
-  start: (relay: Relay) => Promise<void>;
-  end: () => void;
+  start: (relay: Relay, connectionId?: string) => Promise<void>;
+  end: () => Promise<boolean>;
   copy: () => Promise<void>;
 };
 
@@ -20,7 +20,7 @@ export const createPairing = (surface: PairingSurface): Pairing => {
   const [view, setView] = createSignal<PairingView | undefined>();
   const [failure, setFailure] = createSignal<string | undefined>();
   const [copied, setCopied] = createSignal(false);
-  const started: { connectionId?: string; } = {};
+  let started: { connectionId: string; pending: ReturnType<typeof call>; } | undefined;
   const ended = new Set<string>();
   const show = (value: PairingView | null | undefined): void => {
     setView(value && !ended.has(value.connection.connectionId) ? value : undefined);
@@ -39,28 +39,49 @@ export const createPairing = (surface: PairingSurface): Pairing => {
     failure: () => failure() ?? view()?.error,
     isStarting: () => !!view() && !url() && !view()?.error,
     copied,
-    start: async (relay) => {
-      const connectionId = crypto.randomUUID();
+    start: async (relay, connectionId = crypto.randomUUID()) => {
+      ended.delete(connectionId);
 
-      started.connectionId = connectionId;
       setCopied(false);
       setFailure(undefined);
 
-      const reply = await call({ kind: "ui:pair", connectionId, relay, surface });
+      const pending = call({ kind: "ui:pair", connectionId, relay, surface });
 
-      if (!reply.result.ok) setFailure(reply.result.error);
+      started = { connectionId, pending };
+      const reply = await pending;
+
+      if (started?.connectionId === connectionId && !reply.result.ok) setFailure(reply.result.error);
     },
-    end: () => {
-      const connectionId = view()?.connection.connectionId ?? started.connectionId;
+    end: async () => {
+      const connectionId = view()?.connection.connectionId ?? started?.connectionId;
 
-      delete started.connectionId;
-      setView(undefined);
-      setFailure(undefined);
+      if (!connectionId) return true;
 
-      if (!connectionId) return;
+      try {
+        await Promise.allSettled([started?.pending]);
+        const reply = await call({ kind: "ui:end-pair", connectionId });
 
-      ended.add(connectionId);
-      void call({ kind: "ui:end-pair", connectionId });
+        if (!reply.result.ok) {
+          setFailure(reply.result.error);
+
+          return false;
+        }
+
+        ended.add(connectionId);
+
+        if (started?.connectionId === connectionId) started = undefined;
+
+        if (view()?.connection.connectionId === connectionId) setView(undefined);
+
+        setFailure(undefined);
+
+        return true;
+      }
+      catch (error) {
+        setFailure(error instanceof Error ? error.message : t("approval.couldNotStopConnection"));
+
+        return false;
+      }
     },
     copy: async () => {
       const value = url();

@@ -13,10 +13,7 @@ import type {
 
 const engine: { ready?: Promise<void>; } = {};
 
-/**
- * Every session runs in the offscreen document: a service worker has no
- * `RTCPeerConnection`, so the transport cannot live in the worker at all.
- */
+// Service workers lack RTCPeerConnection.
 const ensureEngine = async (): Promise<void> => {
   if (await browser.offscreen.hasDocument()) return;
 
@@ -64,11 +61,7 @@ const engineFailed = (message: string): never => {
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 100;
 
-/**
- * A freshly created offscreen document may not have run its script yet, so
- * the first message after a browser start can arrive before anything is
- * listening. Retrying beats failing the first pairing of every session.
- */
+// The offscreen document can exist before its message listener is ready.
 const callEngine = async (command: EngineCommand): Promise<EngineReply> => {
   if (engine.ready) await engine.ready;
 
@@ -180,7 +173,6 @@ export const engineStates = async (): Promise<
       : {};
   }
   catch {
-    // No engine means nothing is live, which is what an empty map says.
     return {};
   }
 };

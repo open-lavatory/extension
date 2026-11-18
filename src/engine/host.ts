@@ -2,9 +2,11 @@ import { encodeConnectionURL } from "@openlv/core";
 import { createSession, RequestFailedError, type Session, SessionStatus } from "@openlv/session";
 import { webrtc } from "@openlv/transport/webrtc";
 import { browser } from "wxt/browser";
+import * as z from "zod/mini";
 
 import type { Wallet } from "../connections/registry.js";
 import type { Relay } from "../connections/relay.js";
+import { isWalletNotification, walletAddress } from "./notification.js";
 import type {
   ConnectionState,
   EngineEvent,
@@ -12,11 +14,6 @@ import type {
   RpcPayload,
 } from "./port.js";
 
-/**
- * What the paired wallet is told this peer is. One value for the life of a
- * connection: peer info travels once, during the handshake, and the extension
- * deliberately never claims to be the site it is serving.
- */
 const PEER_INFO = {
   identity: "sh.openlv.connect",
   name: "openlv-connect",
@@ -29,7 +26,6 @@ type Live = {
 
 const live = new Map<string, Live>();
 const preparing = new Map<string, object>();
-const ADDRESS = /^0x[\da-f]{40}$/iu;
 
 const emit = (event: EngineEvent): void => {
   void (async () => {
@@ -37,90 +33,67 @@ const emit = (event: EngineEvent): void => {
       await browser.runtime.sendMessage(event);
     }
     catch {
-      // Nothing is listening because the worker is asleep. Surfaces re-read
-      // state through engine:states when they next open.
+      // A suspended worker has no listener. Surfaces reload state when they open.
     }
   })();
 };
 
+const jsonrpc = z.literal("2.0");
+const responseFields = { jsonrpc, ["id"]: z.string() };
+const walletSuccess = z.looseObject({ ...responseFields, result: z.unknown() })
+  .check(z.refine(value => !("error" in value)));
+const walletFailureFields = z.object({ code: z.int(), message: z.string() });
+const walletFailure = z.looseObject({ ...responseFields, error: walletFailureFields })
+  .check(z.refine(value => !("result" in value)));
+
+type WalletResponse = { requestIdentifier: string; result: EngineResult<unknown>; };
+
+const walletResponse = z.union([
+  z.pipe(walletSuccess, z.transform((reply): WalletResponse => ({
+    requestIdentifier: reply["id"],
+    result: { ok: true, value: reply.result },
+  }))),
+  z.pipe(walletFailure, z.transform((reply): WalletResponse => ({
+    requestIdentifier: reply["id"],
+    result: { ok: false, error: reply.error.message, code: reply.error.code },
+  }))),
+]);
+const peerNotification = z.looseObject({
+  jsonrpc,
+  method: z.string(),
+  params: z.array(z.unknown()),
+}).check(z.refine(value => !("id" in value)));
+const peerRequestId = z.object({ ["id"]: z.union([z.string(), z.number()]) });
+
 const unwrap = (payload: unknown, requestIdentifier: string): EngineResult<unknown> => {
-  if (
-    typeof payload !== "object"
-    || payload === null
-    || !("jsonrpc" in payload)
-    || payload.jsonrpc !== "2.0"
-    || !("id" in payload)
-    || payload["id"] !== requestIdentifier
-    || Object.hasOwn(payload, "result") === Object.hasOwn(payload, "error")
-  ) {
+  const parsed = walletResponse.safeParse(payload);
+
+  if (!parsed.success || parsed.data.requestIdentifier !== requestIdentifier) {
     return { ok: false, error: "Invalid JSON-RPC response from wallet", code: -32_603 };
   }
 
-  if ("error" in payload) {
-    const failure = payload.error;
-
-    if (
-      typeof failure !== "object"
-      || failure === null
-      || !("code" in failure)
-      || typeof failure.code !== "number"
-      || !Number.isSafeInteger(failure.code)
-      || !("message" in failure)
-      || typeof failure.message !== "string"
-    ) {
-      return { ok: false, error: "Invalid JSON-RPC response from wallet", code: -32_603 };
-    }
-
-    return {
-      ok: false,
-      error: failure.message,
-      code: failure.code,
-    };
-  }
-
-  if ("result" in payload) {
-    return { ok: true, value: payload.result };
-  }
-
-  return { ok: false, error: "Invalid JSON-RPC response from wallet", code: -32_603 };
+  return parsed.data.result;
 };
 
 const onPeerRequest = async (connectionId: string, message: unknown): Promise<object | null> => {
-  if (
-    typeof message === "object"
-    && message !== null
-    && "jsonrpc" in message
-    && message.jsonrpc === "2.0"
-    && !("id" in message)
-    && "method" in message
-    && "params" in message
-    && Array.isArray(message.params)
-  ) {
-    const [value]: unknown[] = message.params;
+  const parsed = peerNotification.safeParse(message);
 
-    if (message.method === "accountsChanged" && Array.isArray(value) && value.every((account): account is string => typeof account === "string" && ADDRESS.test(account))) {
-      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, event: "accountsChanged", data: value } satisfies EngineEvent);
+  if (parsed.success) {
+    const [data] = parsed.data.params;
+    const notification = { event: parsed.data.method, data };
 
-      return null;
-    }
-
-    if (typeof value === "string" && message.method === "chainChanged" && /^0x[\da-f]+$/iu.test(value)) {
-      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, event: "chainChanged", data: value } satisfies EngineEvent);
+    if (isWalletNotification(notification)) {
+      await browser.runtime.sendMessage({ kind: "engine:notification", connectionId, ...notification } satisfies EngineEvent);
 
       return null;
     }
   }
 
-  const requestIdentifier = typeof message === "object"
-    && message !== null
-    && "id" in message
-    && (typeof message["id"] === "string" || typeof message["id"] === "number")
-    ? message["id"]
-    : null;
+  const request = peerRequestId.safeParse(message);
 
   return {
     jsonrpc: "2.0",
-    ["id"]: requestIdentifier,
+    ["id"]: request.success ? request.data["id"] : null,
     error: { code: -32_601, message: "Method not found" },
   };
 };
@@ -250,21 +223,16 @@ export const verify = async (
 
   if (!result.ok) return result;
 
-  if (!Array.isArray(result.value)) {
-    return { ok: false, error: "The wallet returned invalid accounts", code: -32_603 };
-  }
+  const accounts = z.array(walletAddress).safeParse(result.value);
 
-  const values: unknown[] = result.value;
-  const accounts = values.filter((account): account is string => typeof account === "string" && ADDRESS.test(account));
-
-  if (accounts.length !== values.length) return { ok: false, error: "The wallet returned invalid accounts", code: -32_603 };
+  if (!accounts.success) return { ok: false, error: "The wallet returned invalid accounts", code: -32_603 };
 
   const info = entry.session.peerInfo.get();
 
   return {
     ok: true,
     value: {
-      accounts,
+      accounts: accounts.data,
       ...(info && { wallet: { name: info.name, ...(info.identity && { identity: info.identity }), ...(info.icon && { icon: info.icon }) } }),
     },
   };

@@ -18,9 +18,11 @@
     "@openlv/core": "0.3.1",
     "@openlv/session": "0.3.3",
     "@openlv/transport": "0.3.1",
+    "blo": "^2.1.1",
     "lucide-solid": "^0.574.0",
     "qr": "^0.7.0",
-    "solid-js": "^1.9.15"
+    "solid-js": "^1.9.15",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@wxt-dev/module-solid": "^1.1.4",

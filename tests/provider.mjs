@@ -366,8 +366,21 @@ test("a refused relay ends on the error screen and Back leaves a stalled pairing
 
     await popup.getByRole("button", { name: "Connect", exact: true }).click();
     await popup.getByText("Waiting for network connection...", { exact: true }).waitFor();
+    await worker.evaluate(() => {
+      const remove = chrome.storage.session.remove.bind(chrome.storage.session);
+
+      chrome.storage.session.remove = async () => {
+        chrome.storage.session.remove = remove;
+        throw new Error("Could not clear pairing");
+      };
+    });
+    await popup.getByRole("button", { name: "Back", exact: true }).click();
+    await popup.getByRole("alert").filter({ hasText: "Could not clear pairing" }).waitFor();
+    assert.equal(await popup.getByRole("button", { name: "Back", exact: true }).count(), 1);
+    assert.ok(await popup.evaluate(async () => (await chrome.storage.session.get("pairing")).pairing));
     await popup.getByRole("button", { name: "Back", exact: true }).click();
     await popup.getByText("Stored wallet", { exact: true }).waitFor();
+    assert.equal(await popup.evaluate(async () => (await chrome.storage.session.get("pairing")).pairing), undefined);
 
     await popup.evaluate(async (server) => {
       await chrome.storage.local.set({ signaling: { p: "mqtt", s: { mqtt: server } } });
@@ -483,6 +496,7 @@ test("a pairing outlives the popup and the service worker", { timeout: 90_000 },
     await site.locator("[data-rdns='sh.openlv.connect']").waitFor();
     const { approval, response } = await beginApproval(context, site);
 
+    await approval.getByRole("radio").first().check();
     await approval.getByRole("radio", { checked: true }).waitFor();
     await approval.getByRole("checkbox", { checked: true }).first().waitFor();
     await approval.getByRole("button", { name: "Connect", exact: true }).click();

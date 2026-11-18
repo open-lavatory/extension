@@ -1,4 +1,5 @@
 import { storage } from "wxt/utils/storage";
+import * as z from "zod/mini";
 
 import type { Connection } from "../connections/registry.js";
 import type { Relay } from "../connections/relay.js";
@@ -17,9 +18,6 @@ export type PairingView = {
   error?: string;
 };
 
-/**
- * Session storage outlives the service worker but not the browser, like the offscreen session it describes.
- */
 export const pairingStore = storage.defineItem<PairingView>("session:pairing");
 
 export type Decision
@@ -33,6 +31,8 @@ export type UiCommand
     | { kind: "ui:pair"; connectionId: string; relay: Relay; surface: PairingSurface; }
     | { kind: "ui:end-pair"; connectionId: string; }
     | { kind: "ui:unbind"; origin: string; }
+    | { kind: "ui:permission-accounts"; connectionId: string; }
+    | { kind: "ui:permission-save"; connectionId: string; origin: string; accounts: string[]; }
     | { kind: "approve:load"; requestId: string; }
     | { kind: "approve:accounts"; requestId: string; connectionId: string; }
     | { kind: "approve:decide"; requestId: string; decision: Decision; };
@@ -48,6 +48,8 @@ export type UiReply
     | { for: "ui:pair"; result: UiResult<null>; }
     | { for: "ui:end-pair"; result: UiResult<null>; }
     | { for: "ui:unbind"; result: UiResult<null>; }
+    | { for: "ui:permission-accounts"; result: UiResult<string[]>; }
+    | { for: "ui:permission-save"; result: UiResult<null>; }
     | {
       for: "approve:load";
       result: UiResult<{ origin: string; icon?: string | undefined; connections: ConnectionView[]; }>;
@@ -55,9 +57,7 @@ export type UiReply
     | { for: "approve:accounts"; result: UiResult<string[]>; }
     | { for: "approve:decide"; result: UiResult<null>; };
 
+const uiCommandKind = z.object({ kind: z.string().check(z.regex(/^(ui|approve):/u)) });
+
 export const isUiCommand = (message: unknown): message is UiCommand =>
-  typeof message === "object"
-  && message !== null
-  && "kind" in message
-  && typeof message.kind === "string"
-  && (message.kind.startsWith("ui:") || message.kind.startsWith("approve:"));
+  uiCommandKind.safeParse(message).success;

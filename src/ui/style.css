@@ -90,6 +90,9 @@ svg { flex-shrink: 0; }
 .connection-list { display: flex; flex-direction: column; }
 .connection-row { display: flex; align-items: center; gap: 12px; min-height: 88px; padding: 16px 0; position: relative; }
 .connection-row + .connection-row { border-top: 1px solid var(--lv-border-color); }
+.connection-details { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.connection-details.selectable { cursor: pointer; }
+.connection-details > input { margin-inline-start: auto; }
 .wallet-state { display: inline-flex; flex-shrink: 0; color: var(--lv-text-secondary); }
 .wallet-state svg, .wallet-state img { width: 32px; height: 32px; }
 .wallet-state img { border-radius: 8px; object-fit: contain; }
@@ -158,22 +161,57 @@ input:not([type="radio"]):not([type="checkbox"]):focus-visible { border-color: #
 .connection-error-copy h2 { margin: 0 0 8px; color: var(--lv-text-primary); font-size: 18px; line-height: 28px; font-weight: 600; }
 .connection-error-copy p { margin-bottom: 8px; color: var(--lv-text-muted); font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
 .connection-error .primary { min-height: 36px; }
-.approval-shell { height: 100vh; min-height: 220px; max-height: none; }
-.approval-body { flex: 1; gap: 20px; padding-top: 20px; padding-bottom: 0; }
+.approval-shell { height: 100vh; min-height: 220px; max-height: none; background: var(--lv-body-background); }
+.approval-shell .header { min-height: 56px; padding: 8px 16px; }
+.approval-shell .header h1 { font-size: 16px; }
+.approval-body { flex: 1; gap: 24px; padding: 8px 24px 0; }
 .origin { font-weight: 600; overflow-wrap: anywhere; }
+.approval-shell .origin { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 0 20px; font-size: 16px; line-height: 24px; text-align: center; }
+.approval-shell .origin .site-icon { width: 40px; height: 40px; margin: 0; border-radius: 10px; }
+.approval-shell .origin > span { max-width: 100%; }
 fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
 legend { padding: 0 0 8px; font-weight: 500; font-size: 14px; line-height: 20px; }
+.approval-shell legend { font-weight: 600; font-size: 13px; line-height: 18px; color: var(--lv-text-secondary); }
 .connection-choice { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 0; cursor: pointer; }
 .connection-choice + .connection-choice { border-top: 1px solid var(--lv-border-color); }
 .connection-choice:has(input:disabled) { cursor: default; }
 .connection-choice .wallet-state svg, .connection-choice .wallet-state img { width: 24px; height: 24px; }
 .connection-choice strong { font-weight: 500; }
+.picker-heading { width: 100%; }
+.picker-heading > span { float: inline-start; padding-top: 4px; }
+.pair-link { float: inline-end; border: 0; border-radius: 4px; padding: 4px 0 4px 12px; background: transparent; color: var(--lv-primary-background); font-size: 13px; font-weight: 500; }
+.pair-link:hover:not(:disabled) { text-decoration: underline; }
+.pair-link:disabled { color: var(--lv-text-muted); }
 input[type="radio"], input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; margin: 0; accent-color: var(--lv-primary-background); }
 .transfer-warning { color: var(--lv-text-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .transfer-warning strong { color: var(--lv-text-primary); font-weight: 500; }
 .accounts label { display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; }
 .accounts label span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 16px; }
+.approval-shell .accounts legend { padding-bottom: 12px; }
+.approval-shell .account-card { display: grid; grid-template-columns: 28px minmax(0, 1fr) 16px; align-items: center; gap: 12px; min-height: 52px; padding: 12px 14px; border: 1px solid var(--lv-border-color); border-radius: 8px; background: var(--lv-card-background); cursor: pointer; transition: border-color 120ms, background-color 120ms; }
+.account-card + .account-card { margin-top: 6px; }
+.account-card:hover { background: var(--lv-tertiary-hover); }
+.account-card:has(input:checked) { border-color: color-mix(in srgb, var(--lv-primary-background) 38%, var(--lv-border-color)); }
+.account-card:has(input:focus-visible) { outline: 2px solid var(--lv-primary-background); outline-offset: 3px; }
+.account-card:has(input:disabled) { cursor: default; }
+.account-identicon { display: block; width: 28px; height: 28px; border-radius: 7px; }
+.approval-shell .account-address { grid-column: 2; overflow: hidden; color: var(--lv-text-primary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.account-card > input { grid-column: 3; }
 .approval-actions { display: flex; gap: 8px; position: sticky; bottom: 0; padding: 16px 0; background: var(--lv-body-background); margin-top: auto; flex-shrink: 0; }
+.approval-shell .approval-actions { gap: 10px; padding-bottom: 20px; }
 .approval-actions button { flex: 1; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+.permissions-editor { display: flex; flex: 1; flex-direction: column; gap: 24px; padding-top: 8px; }
+.permission-accounts legend { padding-bottom: 12px; color: var(--lv-text-secondary); font-size: 13px; }
+.permission-account-list { border: 1px solid var(--lv-border-color); border-radius: 12px; overflow: hidden; background: var(--lv-card-background); }
+.permission-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 12px 14px; cursor: pointer; }
+.permission-account + .permission-account { border-top: 1px solid var(--lv-border-color); }
+.permission-account:hover { background: var(--lv-tertiary-hover); }
+.permission-account:has(input:checked) { background: color-mix(in srgb, var(--lv-primary-background) 5%, var(--lv-card-background)); }
+.permission-account:has(input:focus-visible) { outline: 2px solid var(--lv-primary-background); outline-offset: -2px; }
+.account-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.account-identity img { border-radius: 7px; flex-shrink: 0; }
+.account-identity code { font-size: 13px; white-space: nowrap; }
+.permission-save { margin-top: auto; flex-shrink: 0; }

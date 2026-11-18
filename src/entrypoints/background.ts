@@ -2,6 +2,7 @@ import { type Browser, browser } from "wxt/browser";
 import { defineBackground } from "wxt/utils/define-background";
 
 import { siteAccounts, visibleAccounts, walletAccounts } from "../connections/accounts.js";
+import { askApproval, type PendingApproval } from "../connections/approval.js";
 import {
   bindOrigin,
   connectionForOrigin,
@@ -9,20 +10,20 @@ import {
 } from "../connections/binding.js";
 import { didHandlePairingEvent, endPairing, startPairing } from "../connections/pairing.js";
 import {
-  type Connection,
   getConnection,
   listConnections,
   patchConnection,
   removeConnection,
+  updateConnections,
 } from "../connections/registry.js";
 import {
   engineClose,
-  engineSend,
   engineStates,
   engineUrl,
 } from "../engine/client.js";
 import { isEngineEvent } from "../engine/port.js";
 import { t } from "../i18n/catalogue.js";
+import { forwardWalletRequest } from "../rpc/forward.js";
 import {
   answerPage,
   isPageMessage,
@@ -33,10 +34,10 @@ import {
   refusePage,
   type RpcFailure,
 } from "../rpc/page.js";
+import { accountPermissions, hasAuthorizedSigner, isAccountPermissionRequest } from "../rpc/permissions.js";
 import { routeMethod } from "../rpc/policy.js";
 import {
   type ConnectionView,
-  type Decision,
   isUiCommand,
   type UiCommand,
   type UiReply,
@@ -55,10 +56,6 @@ const DISCONNECTED: RpcFailure = {
   message: "The paired wallet is not reachable",
 };
 
-/**
- * What a site sees before it has connected. Nothing can be forwarded without
- * a binding, and an error here breaks the connect button on most dapps.
- */
 const UNBOUND_CHAIN = "0x1";
 
 const siteIcon = async (pageUrl: string): Promise<string | undefined> => {
@@ -112,15 +109,7 @@ export default defineBackground(() => {
   });
 
   const ports = new Map<string, Set<Browser.runtime.Port>>();
-  /**
-   * Approvals are held in memory. A worker suspended while the approval
-   * window is open forgets the request, and the site sees its call time out
-   * rather than receive a wrong answer.
-   */
-  const approvals = new Map<
-    string,
-    { origin: string; icon?: string | undefined; settle: (decision: Decision) => void; }
-  >();
+  const approvals = new Map<string, PendingApproval>();
 
   const emitToOrigin = (
     origin: string,
@@ -138,39 +127,6 @@ export default defineBackground(() => {
     for (const port of open) port.postMessage(message);
   };
 
-  const askApproval = async (origin: string, icon: string | undefined): Promise<Decision> => {
-    const requestId = crypto.randomUUID();
-    const decided = new Promise<Decision>((resolve) => {
-      approvals.set(requestId, { origin, icon, settle: resolve });
-    });
-    const created = await browser.windows.create({
-      url: `${browser.runtime.getURL("/approve.html")}?request=${requestId}`,
-      type: "popup",
-      width: 420,
-      height: 660,
-    });
-    const openedId = created?.["id"];
-
-    if (openedId !== undefined) {
-      const onRemoved = (closedId: number) => {
-        if (closedId !== openedId) return;
-
-        browser.windows.onRemoved.removeListener(onRemoved);
-
-        const waiting = approvals.get(requestId);
-
-        if (!waiting) return;
-
-        approvals.delete(requestId);
-        waiting.settle({ kind: "rejected" });
-      };
-
-      browser.windows.onRemoved.addListener(onRemoved);
-    }
-
-    return await decided;
-  };
-
   const connectOrigin = async (
     origin: string,
     messageId: string,
@@ -185,7 +141,7 @@ export default defineBackground(() => {
     }
 
     const icon = pageUrl === undefined ? undefined : await siteIcon(pageUrl);
-    const decision = await askApproval(origin, icon);
+    const decision = await askApproval(approvals, origin, icon);
 
     if (decision.kind === "rejected") return refusePage(messageId, USER_REJECTED);
 
@@ -213,46 +169,6 @@ export default defineBackground(() => {
     return answerPage(messageId, decision.accounts);
   };
 
-  const forwardAndCache = async (
-    origin: string,
-    connection: Connection,
-    request: PageRequest,
-  ): Promise<PageResponse> => {
-    const result = await engineSend(connection.connectionId, {
-      method: request.method,
-      ...(request.params !== undefined && { params: request.params }),
-    });
-
-    if (!result.ok) {
-      return refusePage(request.messageId, {
-        code: result.code ?? DISCONNECTED.code,
-        message: result.error,
-      });
-    }
-
-    if (request.method === "eth_chainId" && typeof result.value === "string") {
-      await patchConnection(connection.connectionId, { chainId: result.value });
-    }
-
-    if (
-      request.method === "wallet_switchEthereumChain"
-      || request.method === "wallet_addEthereumChain"
-    ) {
-      const refreshed = await engineSend(connection.connectionId, {
-        method: "eth_chainId",
-      });
-
-      if (refreshed.ok && typeof refreshed.value === "string") {
-        await patchConnection(connection.connectionId, {
-          chainId: refreshed.value,
-        });
-        emitToOrigin(origin, "chainChanged", refreshed.value);
-      }
-    }
-
-    return answerPage(request.messageId, result.value);
-  };
-
   const handlePageRequest = async (
     origin: string,
     request: PageRequest,
@@ -268,6 +184,18 @@ export default defineBackground(() => {
       return await connectOrigin(origin, request.messageId, pageUrl);
     }
 
+    if (route.kind === "requestPermissions") {
+      if (!isAccountPermissionRequest(request.params)) return refusePage(request.messageId, { code: 4200, message: "Only eth_accounts permissions are supported" });
+
+      const response = await connectOrigin(origin, request.messageId, pageUrl);
+
+      if ("error" in response) return response;
+
+      const connection = await connectionForOrigin(origin);
+
+      return answerPage(request.messageId, accountPermissions(origin, connection ? await siteAccounts(connection) : []));
+    }
+
     if (route.kind === "revoke") {
       await unbindOrigin(origin);
       emitToOrigin(origin, "accountsChanged", []);
@@ -277,8 +205,11 @@ export default defineBackground(() => {
 
     const connection = await connectionForOrigin(origin);
 
-    if (route.kind === "accounts") {
-      return answerPage(request.messageId, connection ? await siteAccounts(connection) : []);
+    if (["accounts", "permissions", "coinbase"].includes(route.kind)) {
+      const accounts = connection ? await siteAccounts(connection) : [];
+      const value = route.kind === "permissions" ? accountPermissions(origin, accounts) : (route.kind === "coinbase" ? accounts[0] ?? null : accounts);
+
+      return answerPage(request.messageId, value);
     }
 
     if (route.kind === "chainId" && connection?.chainId) {
@@ -291,7 +222,9 @@ export default defineBackground(() => {
         : refusePage(request.messageId, UNAUTHORIZED);
     }
 
-    return await forwardAndCache(origin, connection, request);
+    if (!hasAuthorizedSigner(request, connection.binding?.accounts ?? [])) return refusePage(request.messageId, UNAUTHORIZED);
+
+    return await forwardWalletRequest(origin, connection, request, emitToOrigin);
   };
 
   const forgetConnection = async (connectionId: string): Promise<UiReply> => {
@@ -346,6 +279,42 @@ export default defineBackground(() => {
         return { for: "ui:unbind", result: { ok: true, value: null } };
       }
 
+      case "ui:permission-accounts": {
+        return { for: "ui:permission-accounts", result: await walletAccounts(command.connectionId) };
+      }
+
+      case "ui:permission-save": {
+        const connection = await getConnection(command.connectionId);
+
+        if (connection?.binding?.origin !== command.origin) {
+          return { for: "ui:permission-save", result: { ok: false, error: t("approval.noLongerWaiting") } };
+        }
+
+        const result = await walletAccounts(command.connectionId);
+
+        if (!result.ok) return { for: "ui:permission-save", result };
+
+        let accounts: string[] | undefined;
+
+        await updateConnections(connections => connections.map((entry) => {
+          if (entry.connectionId !== command.connectionId || entry.binding?.origin !== command.origin) return entry;
+
+          const allowed = new Set([...result.value, ...entry.binding.accounts].map(account => account.toLowerCase()));
+
+          accounts = command.accounts.filter(account => allowed.has(account.toLowerCase()));
+
+          return { ...entry, binding: { ...entry.binding, accounts } };
+        }));
+
+        if (!accounts) return { for: "ui:permission-save", result: { ok: false, error: t("approval.noLongerWaiting") } };
+
+        const visible = visibleAccounts(result.value, accounts);
+
+        emitToOrigin(command.origin, "accountsChanged", visible);
+
+        return { for: "ui:permission-save", result: { ok: true, value: null } };
+      }
+
       case "approve:load": {
         const waiting = approvals.get(command.requestId);
 
@@ -379,6 +348,21 @@ export default defineBackground(() => {
           };
         }
 
+        if (command.decision.kind === "approved") {
+          const decision = command.decision;
+          const result = await walletAccounts(decision.connectionId);
+
+          if (approvals.get(command.requestId) !== waiting || !result.ok) {
+            return { for: "approve:decide", result: { ok: false, error: t("approval.noLongerWaiting") } };
+          }
+
+          const accounts = visibleAccounts(result.value, decision.accounts);
+
+          if (accounts.length !== decision.accounts.length || accounts.length === 0) {
+            return { for: "approve:decide", result: { ok: false, error: t("approval.noLongerWaiting") } };
+          }
+        }
+
         approvals.delete(command.requestId);
         waiting.settle(command.decision);
 
@@ -390,8 +374,6 @@ export default defineBackground(() => {
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== PAGE_CHANNEL) return;
 
-    // The origin comes from the port, never from the message body: a page can
-    // write anything into a postMessage payload and nothing into its sender.
     const origin = port.sender?.origin;
 
     if (!origin) {
@@ -440,7 +422,9 @@ export default defineBackground(() => {
         await Promise.allSettled([previous]);
         const connection = await getConnection(message.connectionId);
 
-        if (message.event === "chainChanged") await patchConnection(message.connectionId, { chainId: message.data });
+        if (message.event === "chainChanged" || message.event === "connect") {
+          await patchConnection(message.connectionId, { chainId: message.event === "connect" ? message.data.chainId : message.data });
+        }
 
         if (connection?.binding) {
           const data = message.event === "accountsChanged" ? visibleAccounts(message.data, connection.binding.accounts) : message.data;

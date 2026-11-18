@@ -1,8 +1,10 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
+import * as z from "zod/mini";
 
 import openlvIcon from "../assets/openlv.svg?raw";
 import {
   isPageMessage,
+  isRpcFailure,
   PAGE_CHANNEL,
   type PageRequest,
   type RpcFailure,
@@ -18,20 +20,28 @@ const PROVIDER_INFO = {
 
 class ProviderRpcError extends Error {
   readonly code: number;
+  readonly data: unknown;
 
   constructor(failure: RpcFailure) {
     super(failure.message);
     this.name = "ProviderRpcError";
     this.code = failure.code;
+    this.data = failure.data;
   }
 }
 
-type Listener = (data: never) => void;
+type Listener = (data: unknown) => void;
 
 type Settle = {
   resolve: (value: unknown) => void;
   reject: (reason: Error) => void;
 };
+
+const providerRequest = z.object({
+  method: z.string().check(z.minLength(1)),
+  params: z.optional(z.unknown()),
+});
+const providerParameters = z.custom<object>(value => typeof value === "object" && value !== null);
 
 const createProvider = () => {
   const waiting = new Map<string, Settle>();
@@ -64,28 +74,26 @@ const createProvider = () => {
 
     if (message.kind === "event") {
       const subscribed = listeners.get(message.event) ?? new Set<Listener>();
+      const data = message.event === "disconnect" && isRpcFailure(message.data)
+        ? new ProviderRpcError(message.data)
+        : message.data;
 
       for (const listener of subscribed) {
-        (listener as (data: unknown) => void)(message.data);
+        listener(data);
       }
     }
   });
 
   const request = async (call: unknown): Promise<unknown> => {
-    if (
-      typeof call !== "object"
-      || call === null
-      || !("method" in call)
-      || typeof call.method !== "string"
-      || call.method.length === 0
-    ) {
+    const parsed = providerRequest.safeParse(call);
+
+    if (!parsed.success) {
       throw new ProviderRpcError({ code: -32_600, message: "Invalid request" });
     }
 
-    const method = call.method;
-    const parameters = "params" in call ? call.params : undefined;
+    const { method, params: parameters } = parsed.data;
 
-    if (parameters !== undefined && (typeof parameters !== "object" || parameters === null)) {
+    if (parameters !== undefined && !providerParameters.safeParse(parameters).success) {
       throw new ProviderRpcError({ code: -32_602, message: "Invalid request params" });
     }
 
@@ -146,8 +154,6 @@ export default defineContentScript({
     globalThis.addEventListener("eip6963:requestProvider", announce);
     announce();
 
-    // Only claimed when nothing else wants it. Whoever writes last wins that
-    // property, and a fight over it is one nobody can win reliably.
     if (!("ethereum" in globalThis)) {
       Object.defineProperty(globalThis, "ethereum", {
         value: provider,
