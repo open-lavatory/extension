@@ -440,7 +440,9 @@ export default defineBackground(() => {
         await Promise.allSettled([previous]);
         const connection = await getConnection(message.connectionId);
 
-        if (message.event === "chainChanged") await patchConnection(message.connectionId, { chainId: message.data });
+        if (message.event === "chainChanged" || message.event === "connect") {
+          await patchConnection(message.connectionId, { chainId: message.event === "connect" ? message.data.chainId : message.data });
+        }
 
         if (connection?.binding) {
           const data = message.event === "accountsChanged" ? visibleAccounts(message.data, connection.binding.accounts) : message.data;

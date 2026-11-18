@@ -3,6 +3,7 @@ import * as z from "zod/mini";
 
 import type { Wallet } from "../connections/registry.js";
 import type { Relay } from "../connections/relay.js";
+import type { WalletNotification } from "./notification.js";
 
 export type RpcPayload = {
   method: string;
@@ -45,8 +46,7 @@ export type EngineEvent
     url?: string;
   }
   | { kind: "engine:wallet"; connectionId: string; wallet: Wallet; }
-  | { kind: "engine:notification"; connectionId: string; event: "accountsChanged"; data: string[]; }
-  | { kind: "engine:notification"; connectionId: string; event: "chainChanged"; data: string; };
+  | ({ kind: "engine:notification"; connectionId: string; } & WalletNotification);
 
 const engineEventKind = z.object({ kind: z.enum(["engine:state", "engine:wallet", "engine:notification"]) });
 
