@@ -11,7 +11,7 @@ export type Pairing = {
   failure: Accessor<string | undefined>;
   isStarting: Accessor<boolean>;
   copied: Accessor<boolean>;
-  start: (relay: Relay) => Promise<void>;
+  start: (relay: Relay, connectionId?: string) => Promise<void>;
   end: () => Promise<boolean>;
   copy: () => Promise<void>;
 };
@@ -39,8 +39,8 @@ export const createPairing = (surface: PairingSurface): Pairing => {
     failure: () => failure() ?? view()?.error,
     isStarting: () => !!view() && !url() && !view()?.error,
     copied,
-    start: async (relay) => {
-      const connectionId = crypto.randomUUID();
+    start: async (relay, connectionId = crypto.randomUUID()) => {
+      ended.delete(connectionId);
 
       setCopied(false);
       setFailure(undefined);

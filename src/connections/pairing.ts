@@ -71,7 +71,9 @@ const finish = async (connectionId: string): Promise<void> => {
       return;
     }
 
+    const existing = await getConnection(connectionId);
     const connection = {
+      ...existing,
       connectionId,
       relay: view.connection.relay,
       createdAt: view.connection.createdAt,
@@ -93,16 +95,22 @@ const finish = async (connectionId: string): Promise<void> => {
 };
 
 export const endPairing = async (connectionId: string): Promise<void> => changePairing(async () => {
+  await load();
+  const isConnected = held.view?.connection.connectionId === connectionId && held.view.connection.state === "connected";
+
   await update(connectionId, () => undefined);
 
-  if (!await getConnection(connectionId)) await engineClose(connectionId);
+  if (!isConnected) await engineClose(connectionId);
 });
 
 export const startPairing = async (connectionId: string, relay: Relay, surface: PairingSurface): Promise<void> => changePairing(async () => {
   await load();
   const previous = held.view;
+  const existing = await getConnection(connectionId);
 
-  await store({ connection: { connectionId, relay, createdAt: Date.now(), state: "created" }, surface });
+  if (existing) await engineClose(connectionId);
+
+  await store({ connection: { ...existing, connectionId, relay, createdAt: existing?.createdAt ?? Date.now(), state: "created" }, surface });
 
   if (previous && previous.connection.connectionId !== connectionId && previous.connection.state !== "connected") await engineClose(previous.connection.connectionId);
 
