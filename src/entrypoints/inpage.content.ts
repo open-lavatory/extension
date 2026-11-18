@@ -4,6 +4,7 @@ import * as z from "zod/mini";
 import openlvIcon from "../assets/openlv.svg?raw";
 import {
   isPageMessage,
+  isRpcFailure,
   PAGE_CHANNEL,
   type PageRequest,
   type RpcFailure,
@@ -19,11 +20,13 @@ const PROVIDER_INFO = {
 
 class ProviderRpcError extends Error {
   readonly code: number;
+  readonly data: unknown;
 
   constructor(failure: RpcFailure) {
     super(failure.message);
     this.name = "ProviderRpcError";
     this.code = failure.code;
+    this.data = failure.data;
   }
 }
 
@@ -71,9 +74,12 @@ const createProvider = () => {
 
     if (message.kind === "event") {
       const subscribed = listeners.get(message.event) ?? new Set<Listener>();
+      const data = message.event === "disconnect" && isRpcFailure(message.data)
+        ? new ProviderRpcError(message.data)
+        : message.data;
 
       for (const listener of subscribed) {
-        listener(message.data);
+        listener(data);
       }
     }
   });

@@ -16,6 +16,7 @@ const pageRequest = z.object({
 const rpcFailure = z.object({
   code: z.number(),
   message: z.string(),
+  data: z.optional(z.unknown()),
 });
 
 const response = { channel, kind: z.literal("response"), messageId };
@@ -27,7 +28,7 @@ const pageResponse = z.union([
 const pageEvent = z.object({
   channel,
   kind: z.literal("event"),
-  event: z.enum(["accountsChanged", "chainChanged", "connect", "disconnect"]),
+  event: z.enum(["accountsChanged", "chainChanged", "connect", "disconnect", "message"]),
   data: z.unknown(),
 });
 
@@ -43,6 +44,8 @@ export type PageResponse = {
 } & ({ result: unknown; } | { error: RpcFailure; });
 
 export type PageMessage = PageRequest | PageResponse | PageEvent;
+
+export const isRpcFailure = (value: unknown): value is RpcFailure => rpcFailure.safeParse(value).success;
 
 export const isPageMessage = (value: unknown): value is PageMessage => pageMessage.safeParse(value).success;
 
