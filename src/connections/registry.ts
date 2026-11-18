@@ -14,11 +14,6 @@ export type Binding = {
   icon?: string | undefined;
 };
 
-/**
- * The persisted half of a connection. The session itself lives in the
- * offscreen document and does not survive a browser restart yet, so a record
- * read back from storage stays `disconnected` until it is paired again.
- */
 export type Connection = {
   connectionId: string;
   relay: Relay;

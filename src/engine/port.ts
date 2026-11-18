@@ -1,4 +1,5 @@
 import type { SessionStatus } from "@openlv/session";
+import * as z from "zod/mini";
 
 import type { Wallet } from "../connections/registry.js";
 import type { Relay } from "../connections/relay.js";
@@ -8,11 +9,6 @@ export type RpcPayload = {
   params?: unknown;
 };
 
-/**
- * The session's own status, carried through unchanged. Collapsing it would
- * hide the difference between "waiting for the relay" and "waiting for the
- * user to scan", which is what the pairing screen switches on.
- */
 export type ConnectionState = SessionStatus;
 
 export type EngineCommand
@@ -52,9 +48,7 @@ export type EngineEvent
   | { kind: "engine:notification"; connectionId: string; event: "accountsChanged"; data: string[]; }
   | { kind: "engine:notification"; connectionId: string; event: "chainChanged"; data: string; };
 
+const engineEventKind = z.object({ kind: z.enum(["engine:state", "engine:wallet", "engine:notification"]) });
+
 export const isEngineEvent = (message: unknown): message is EngineEvent =>
-  typeof message === "object"
-  && message !== null
-  && "kind" in message
-  && typeof message.kind === "string"
-  && ["engine:state", "engine:wallet", "engine:notification"].includes(message.kind);
+  engineEventKind.safeParse(message).success;
