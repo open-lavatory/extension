@@ -33,6 +33,8 @@
   "actions.pair": "Pair",
   "actions.reject": "Reject",
   "actions.revoke": "Revoke",
+  "actions.editPermissions": "Edit permissions",
+  "actions.savePermissions": "Save permissions",
   "menu.howItWorks": "How it works",
   "errors.extensionDidNotAnswer": "The extension did not answer",
   "errors.couldNotOpen": "Could not open the extension. Close it and try again.",
