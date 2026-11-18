@@ -10,6 +10,7 @@ type ConnectionRowProperties = {
   onForget: () => void;
   onReconnect?: () => void;
   onRevoke: (origin: string) => void;
+  onEditPermissions?: (connectionId: string) => void;
   disabled?: boolean;
   selection?: { checked: boolean; onSelect: () => void; };
 };
@@ -47,7 +48,12 @@ export const ConnectionRow = (properties: ConnectionRowProperties): JSX.Element 
           {connect => <button type="button" disabled={properties.disabled} onClick={() => connect()()}>{t("actions.reconnect")}</button>}
         </Show>
         <Show when={properties.connection.binding}>
-          {binding => <button type="button" disabled={properties.disabled} onClick={() => properties.onRevoke(binding().origin)}>{t("actions.revoke")}</button>}
+          {binding => (
+            <>
+              <Show when={properties.onEditPermissions}>{edit => <button type="button" disabled={properties.disabled} onClick={() => edit()(properties.connection.connectionId)}>{t("actions.editPermissions")}</button>}</Show>
+              <button type="button" disabled={properties.disabled} onClick={() => properties.onRevoke(binding().origin)}>{t("actions.revoke")}</button>
+            </>
+          )}
         </Show>
         <button type="button" disabled={properties.disabled} onClick={() => properties.onForget()}>{t("actions.forget")}</button>
       </div>

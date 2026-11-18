@@ -32,6 +32,8 @@
   "actions.pair": "Koppelen",
   "actions.reject": "Weigeren",
   "actions.revoke": "Intrekken",
+  "actions.editPermissions": "Machtigingen bewerken",
+  "actions.savePermissions": "Machtigingen opslaan",
   "menu.howItWorks": "Hoe het werkt",
   "errors.extensionDidNotAnswer": "De extensie heeft niet gereageerd",
   "errors.couldNotOpen": "Kan de extensie niet openen. Sluit hem en probeer het opnieuw.",

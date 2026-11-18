@@ -31,6 +31,8 @@ export type UiCommand
     | { kind: "ui:pair"; connectionId: string; relay: Relay; surface: PairingSurface; }
     | { kind: "ui:end-pair"; connectionId: string; }
     | { kind: "ui:unbind"; origin: string; }
+    | { kind: "ui:permission-accounts"; connectionId: string; }
+    | { kind: "ui:permission-save"; connectionId: string; origin: string; accounts: string[]; }
     | { kind: "approve:load"; requestId: string; }
     | { kind: "approve:accounts"; requestId: string; connectionId: string; }
     | { kind: "approve:decide"; requestId: string; decision: Decision; };
@@ -46,6 +48,8 @@ export type UiReply
     | { for: "ui:pair"; result: UiResult<null>; }
     | { for: "ui:end-pair"; result: UiResult<null>; }
     | { for: "ui:unbind"; result: UiResult<null>; }
+    | { for: "ui:permission-accounts"; result: UiResult<string[]>; }
+    | { for: "ui:permission-save"; result: UiResult<null>; }
     | {
       for: "approve:load";
       result: UiResult<{ origin: string; icon?: string | undefined; connections: ConnectionView[]; }>;
