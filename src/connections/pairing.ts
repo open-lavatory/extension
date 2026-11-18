@@ -8,10 +8,6 @@ import { getConnection, putConnection, removeConnection } from "./registry.js";
 import { getSignalingSettings, type Relay, signalingStore } from "./relay.js";
 import { transportStore } from "./settings.js";
 
-/**
- * Every change reads `held.view` and assigns the next value in the same synchronous step after `load()`, so concurrent engine events cannot overwrite each other.
- * Session storage only carries the record across a service worker restart and to the popup.
- */
 const held: { view?: PairingView; loading?: Promise<void>; } = {};
 
 const load = async (): Promise<void> => {

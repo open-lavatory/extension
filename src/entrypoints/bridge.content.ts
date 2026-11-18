@@ -1,7 +1,10 @@
 import { browser } from "wxt/browser";
 import { defineContentScript } from "wxt/utils/define-content-script";
+import * as z from "zod/mini";
 
 import { isPageMessage, PAGE_CHANNEL } from "../rpc/page.js";
+
+const originEvent = z.object({ origin: z.string(), event: z.unknown() });
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -17,8 +20,7 @@ export default defineContentScript({
 
         globalThis.postMessage(message, globalThis.location.origin);
       });
-      // The worker suspends when idle and takes the port with it. The next
-      // request opens a new one, which wakes the worker again.
+      // Worker suspension closes the port. The next request wakes the worker.
       opened.onDisconnect.addListener(() => {
         port = undefined;
       });
@@ -38,9 +40,11 @@ export default defineContentScript({
     });
 
     browser.runtime.onMessage.addListener((message: unknown) => {
-      if (typeof message !== "object" || message === null || !("origin" in message) || message.origin !== globalThis.location.origin || !("event" in message) || !isPageMessage(message.event)) return;
+      const parsed = originEvent.safeParse(message);
 
-      globalThis.postMessage(message.event, globalThis.location.origin);
+      if (!parsed.success || parsed.data.origin !== globalThis.location.origin || !isPageMessage(parsed.data.event)) return;
+
+      globalThis.postMessage(parsed.data.event, globalThis.location.origin);
     });
 
     connect();

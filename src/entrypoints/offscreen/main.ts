@@ -1,4 +1,5 @@
 import { browser } from "wxt/browser";
+import * as z from "zod/mini";
 
 import type { EngineCommand, EngineFailure, EngineReply } from "../../engine/port.js";
 
@@ -42,12 +43,10 @@ const handle = async (command: EngineCommand): Promise<EngineReply> => {
   }
 };
 
+const engineCommandKind = z.object({ kind: z.enum(["engine:pair", "engine:url", "engine:send", "engine:verify", "engine:close", "engine:states"]) });
+
 const isEngineCommand = (message: unknown): message is EngineCommand =>
-  typeof message === "object"
-  && message !== null
-  && "kind" in message
-  && typeof message.kind === "string"
-  && message.kind.startsWith("engine:");
+  engineCommandKind.safeParse(message).success;
 
 browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!isEngineCommand(message)) return false;
