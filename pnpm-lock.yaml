@@ -26,6 +26,9 @@ importers:
       solid-js:
         specifier: ^1.9.15
         version: 1.9.15
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
     devDependencies:
       '@wxt-dev/module-solid':
         specifier: ^1.1.4

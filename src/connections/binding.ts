@@ -16,11 +16,6 @@ export const connectionForOrigin = async (
   return current.find(entry => entry.binding?.origin === origin);
 };
 
-/**
- * A connection serves one origin at a time. Binding it to a second origin
- * takes it away from the first, and the displaced origin is returned so the
- * caller can tell its tabs they are disconnected.
- */
 export const bindOrigin = async (
   connectionId: string,
   origin: string,
@@ -43,8 +38,7 @@ export const bindOrigin = async (
         return { ...entry, binding: { origin, accounts, icon } };
       }
 
-      // An origin may not hold two connections either, otherwise revoking one
-      // would leave the site quietly connected through the other.
+      // Keep one connection per origin so revoking it fully disconnects the site.
       if (entry.binding?.origin === origin) {
         return { ...entry, binding: undefined };
       }
