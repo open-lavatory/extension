@@ -3,6 +3,9 @@ import type { RpcFailure } from "./page.js";
 export type Route
   = | { kind: "connect"; }
     | { kind: "accounts"; }
+    | { kind: "permissions"; }
+    | { kind: "requestPermissions"; }
+    | { kind: "coinbase"; }
     | { kind: "chainId"; }
     | { kind: "revoke"; }
     | { kind: "forward"; }
@@ -18,13 +21,14 @@ const UNSUPPORTED = new Set([
   "eth_uninstallFilter",
 ]);
 
-/**
- * The extension approves sites, the wallet approves transactions. Only
- * `eth_requestAccounts` raises a prompt of our own; everything a wallet has
- * to think about is forwarded untouched and confirmed on the phone.
- */
 export const routeMethod = (method: string): Route => {
   if (method === "eth_requestAccounts") return { kind: "connect" };
+
+  if (method === "wallet_getPermissions") return { kind: "permissions" };
+
+  if (method === "wallet_requestPermissions") return { kind: "requestPermissions" };
+
+  if (method === "eth_coinbase") return { kind: "coinbase" };
 
   if (method === "eth_accounts") return { kind: "accounts" };
 
