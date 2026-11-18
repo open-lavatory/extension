@@ -4,11 +4,23 @@ import { engineClose, enginePair, engineVerify } from "../engine/client.js";
 import type { EngineEvent } from "../engine/port.js";
 import { t } from "../i18n/catalogue.js";
 import { type ConnectionView, pairingStore, type PairingSurface, type PairingView } from "../ui/port.js";
-import { getConnection, putConnection, removeConnection } from "./registry.js";
+import { getConnection, putConnection } from "./registry.js";
 import { getSignalingSettings, type Relay, signalingStore } from "./relay.js";
 import { transportStore } from "./settings.js";
 
-const held: { view?: PairingView; loading?: Promise<void>; } = {};
+const held: { view?: PairingView; loading?: Promise<void>; changing: Promise<void>; } = { changing: Promise.resolve() };
+
+const changePairing = (change: () => Promise<void>): Promise<void> => {
+  const previous = held.changing;
+  const next = (async () => {
+    await Promise.allSettled([previous]);
+    await change();
+  })();
+
+  held.changing = next;
+
+  return next;
+};
 
 const load = async (): Promise<void> => {
   held.loading ??= (async () => {
@@ -18,8 +30,18 @@ const load = async (): Promise<void> => {
 };
 
 const store = async (next: PairingView | undefined): Promise<void> => {
+  const previous = held.view;
+
   held.view = next;
-  await (next ? pairingStore.setValue(next) : pairingStore.removeValue());
+
+  try {
+    await (next ? pairingStore.setValue(next) : pairingStore.removeValue());
+  }
+  catch (error) {
+    if (held.view === next) held.view = previous;
+
+    throw error;
+  }
 };
 
 const update = async (connectionId: string, change: (view: PairingView) => PairingView | undefined): Promise<void> => {
@@ -32,33 +54,31 @@ const fail = async (connectionId: string, error: string): Promise<void> => {
   await engineClose(connectionId);
   await update(connectionId, view => (view.connection.state === "connected" || view.error
     ? view
-    : { connection: { ...view.connection, state: "disconnected" }, surface: view.surface, error }));
+    : { ...view, connection: { ...view.connection, state: "disconnected" }, error }));
 };
 
 const finish = async (connectionId: string): Promise<void> => {
   const verified = await engineVerify(connectionId);
 
-  await load();
-  const view = held.view;
+  await changePairing(async () => {
+    const view = held.view;
 
-  if (view?.connection.connectionId !== connectionId) return;
+    if (view?.connection.connectionId !== connectionId || view.error || view.connection.state === "connected") return;
 
-  if (!verified.ok) {
-    await fail(connectionId, verified.error);
+    if (!verified.ok) {
+      await fail(connectionId, verified.error);
 
-    return;
-  }
+      return;
+    }
 
-  const connection = {
-    connectionId,
-    relay: view.connection.relay,
-    createdAt: view.connection.createdAt,
-    wallet: verified.value.wallet ?? view.connection.wallet,
-  };
+    const connection = {
+      connectionId,
+      relay: view.connection.relay,
+      createdAt: view.connection.createdAt,
+      wallet: verified.value.wallet ?? view.connection.wallet,
+    };
 
-  await putConnection(connection);
-
-  if (held.view?.connection.connectionId === connectionId) {
+    await putConnection(connection);
     await store({ connection: { ...connection, state: "connected" }, surface: view.surface });
 
     if (view.surface === "approval") return;
@@ -69,27 +89,22 @@ const finish = async (connectionId: string): Promise<void> => {
     catch {
       // Chrome refuses without a focused browser window and before version 127, and the next open shows Connected anyway.
     }
-
-    return;
-  }
-
-  await removeConnection(connectionId);
-  await engineClose(connectionId);
+  });
 };
 
-export const endPairing = async (connectionId: string): Promise<void> => {
+export const endPairing = async (connectionId: string): Promise<void> => changePairing(async () => {
   await update(connectionId, () => undefined);
 
   if (!await getConnection(connectionId)) await engineClose(connectionId);
-};
+});
 
-export const startPairing = async (connectionId: string, relay: Relay, surface: PairingSurface): Promise<void> => {
+export const startPairing = async (connectionId: string, relay: Relay, surface: PairingSurface): Promise<void> => changePairing(async () => {
   await load();
   const previous = held.view;
 
   await store({ connection: { connectionId, relay, createdAt: Date.now(), state: "created" }, surface });
 
-  if (previous && !await getConnection(previous.connection.connectionId)) await engineClose(previous.connection.connectionId);
+  if (previous && previous.connection.connectionId !== connectionId && previous.connection.state !== "connected") await engineClose(previous.connection.connectionId);
 
   void (async () => {
     try {
@@ -98,8 +113,6 @@ export const startPairing = async (connectionId: string, relay: Relay, surface: 
       if (held.view?.connection.connectionId !== connectionId) return;
 
       const paired = await enginePair(connectionId, relay, transport);
-
-      await load();
 
       if (held.view?.connection.connectionId !== connectionId) {
         await engineClose(connectionId);
@@ -113,7 +126,7 @@ export const startPairing = async (connectionId: string, relay: Relay, surface: 
       await fail(connectionId, error instanceof Error ? error.message : t("errors.couldNotStartConnection"));
     }
   })();
-};
+});
 
 const advance = async (connectionId: string, change: (connection: ConnectionView) => ConnectionView): Promise<void> => {
   await update(connectionId, view => (view.connection.state === "connected" || view.error
