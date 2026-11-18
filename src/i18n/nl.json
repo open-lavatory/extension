@@ -26,6 +26,7 @@
   "handshake.scanCodeInstruction": "Scan de bovenstaande code met je mobiele wallet, of kopieer en plak hem.",
   "actions.back": "Terug",
   "actions.connect": "Verbinden",
+  "actions.reconnect": "Opnieuw verbinden",
   "actions.done": "Klaar",
   "actions.forget": "Vergeten",
   "actions.pair": "Koppelen",

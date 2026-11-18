@@ -27,6 +27,7 @@
 
   "actions.back": "Back",
   "actions.connect": "Connect",
+  "actions.reconnect": "Reconnect",
   "actions.done": "Done",
   "actions.forget": "Forget",
   "actions.pair": "Pair",

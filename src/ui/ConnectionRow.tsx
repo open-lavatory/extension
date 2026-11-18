@@ -7,8 +7,8 @@ import { SiteIcon, WalletIcon } from "./WalletIcon.js";
 
 type ConnectionRowProperties = {
   connection: ConnectionView;
-  onConnect?: () => void;
   onForget: () => void;
+  onReconnect?: () => void;
   onRevoke: (origin: string) => void;
   disabled?: boolean;
   selection?: { checked: boolean; onSelect: () => void; };
@@ -43,8 +43,8 @@ export const ConnectionRow = (properties: ConnectionRowProperties): JSX.Element 
     >
       <summary aria-label={t("popup.actionsFor", { name: properties.connection.wallet?.name ?? t("wallet.unnamed") })}><LucideEllipsis /></summary>
       <div class="menu-items">
-        <Show when={properties.connection.state === "disconnected" && properties.onConnect}>
-          {connect => <button type="button" disabled={properties.disabled} onClick={() => connect()()}>{t("actions.connect")}</button>}
+        <Show when={properties.connection.state === "disconnected" && properties.onReconnect}>
+          {connect => <button type="button" disabled={properties.disabled} onClick={() => connect()()}>{t("actions.reconnect")}</button>}
         </Show>
         <Show when={properties.connection.binding}>
           {binding => <button type="button" disabled={properties.disabled} onClick={() => properties.onRevoke(binding().origin)}>{t("actions.revoke")}</button>}

@@ -146,7 +146,7 @@ export const App = (): JSX.Element => {
   browser.runtime.onMessage.addListener(onRuntimeMessage);
   onCleanup(() => browser.runtime.onMessage.removeListener(onRuntimeMessage));
 
-  const connect = async (relay?: Relay) => {
+  const connect = async (relay?: Relay, connectionId?: string) => {
     await saving;
 
     if (hasSaveFailure) return;
@@ -161,7 +161,7 @@ export const App = (): JSX.Element => {
 
     setFailure(undefined);
     setView("connect");
-    await pairing.start(selected);
+    await pairing.start(selected, connectionId);
     await refetch();
   };
 
@@ -220,7 +220,7 @@ export const App = (): JSX.Element => {
                           {entry => (
                             <ConnectionRow
                               connection={entry()}
-                              onConnect={() => void connect(entry().relay)}
+                              onReconnect={() => void connect(entry().relay, entry().connectionId)}
                               onForget={() => void forget(entry().connectionId)}
                               onRevoke={origin => void unbind(origin)}
                             />
