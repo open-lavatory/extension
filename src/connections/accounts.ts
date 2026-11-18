@@ -1,3 +1,5 @@
+import * as z from "zod/mini";
+
 import { engineSend } from "../engine/client.js";
 import type { EngineResult } from "../engine/port.js";
 import { type Connection, getConnection } from "./registry.js";
@@ -7,8 +9,9 @@ export const walletAccounts = async (connectionId: string): Promise<EngineResult
 
   if (!result.ok) return result;
 
-  const accounts = Array.isArray(result.value)
-    ? result.value.filter((account: unknown): account is string => typeof account === "string")
+  const parsed = z.array(z.unknown()).safeParse(result.value);
+  const accounts = parsed.success
+    ? parsed.data.filter((account): account is string => z.string().safeParse(account).success)
     : [];
 
   return { ok: true, value: accounts };
